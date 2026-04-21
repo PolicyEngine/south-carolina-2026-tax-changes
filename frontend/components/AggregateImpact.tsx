@@ -503,9 +503,6 @@ export default function AggregateImpact({ triggered }: Props) {
                 </BarChart>
               </ResponsiveContainer>
               <ChartWatermark />
-              <p className="text-xs text-gray-500 mt-3 italic">
-                Note: The 2026 South Carolina tax changes do not reach households below the Supplemental Poverty Measure threshold &mdash; their state tax liability is already zero, so rate cuts and deduction changes produce no change in net income at that level. Small nonzero effects can arise from household composition (e.g., SPM units containing both poor and non-poor tax filers).
-              </p>
             </div>
           </div>
         );

@@ -95,16 +95,36 @@ function lerpHexColor(a: string, b: string, t: number) {
   return `rgb(${c(r1, r2)}, ${c(g1, g2)}, ${c(b1, b2)})`;
 }
 
-// Color scale: red (loss) -> light gray (neutral) -> green (gain).
-const COLOR_LOSS = '#b91c1c'; // red-700
-const COLOR_NEUTRAL = '#e5e7eb'; // gray-200
-const COLOR_GAIN = '#15803d'; // green-700
+// PolicyEngine diverging color scale (gray -> teal) — matches Utah dashboard.
+const DIVERGING_COLORS = [
+  '#475569', // gray-600 (most negative)
+  '#94A3B8', // gray-400
+  '#E2E8F0', // gray-200 (neutral/zero)
+  '#81E6D9', // teal-200
+  '#319795', // teal-500 (most positive)
+];
 
-function getImpactColor(value: number, maxAbs: number) {
-  if (maxAbs === 0 || value === 0) return COLOR_NEUTRAL;
-  const t = Math.min(Math.abs(value) / maxAbs, 1);
-  const target = value > 0 ? COLOR_GAIN : COLOR_LOSS;
-  return lerpHexColor(COLOR_NEUTRAL, target, t);
+function parseHex(color: string) {
+  return {
+    r: parseInt(color.slice(1, 3), 16),
+    g: parseInt(color.slice(3, 5), 16),
+    b: parseInt(color.slice(5, 7), 16),
+  };
+}
+
+function getImpactColor(value: number, min: number, max: number) {
+  if (min >= max) return DIVERGING_COLORS[2];
+  const t = Math.max(0, Math.min(1, (value - min) / (max - min)));
+  const segments = DIVERGING_COLORS.length - 1;
+  const segPos = t * segments;
+  const segIndex = Math.min(Math.floor(segPos), segments - 1);
+  const segT = segPos - segIndex;
+  const c0 = parseHex(DIVERGING_COLORS[segIndex]);
+  const c1 = parseHex(DIVERGING_COLORS[segIndex + 1]);
+  const r = Math.round(c0.r + (c1.r - c0.r) * segT);
+  const g = Math.round(c0.g + (c1.g - c0.g) * segT);
+  const b = Math.round(c0.b + (c1.b - c0.b) * segT);
+  return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
 }
 
 // Hand-drawn fallback SC district polygons used if the ArcGIS fetch fails.
@@ -317,7 +337,7 @@ export default function SCDistrictChoroplethMap({
                   const d = dataByNumber.get(districtNum);
                   const value = d?.average_household_income_change ?? 0;
                   const isSelected = selectedDistrict === districtNum;
-                  const fill = getImpactColor(value, maxAbs);
+                  const fill = getImpactColor(value, minChange, maxChange);
                   return (
                     <Geography
                       key={geo.rsmKey || districtNum}
@@ -389,7 +409,7 @@ export default function SCDistrictChoroplethMap({
         <div
           className="h-3 w-48 rounded"
           style={{
-            background: `linear-gradient(to right, ${COLOR_LOSS}, ${COLOR_NEUTRAL}, ${COLOR_GAIN})`,
+            background: `linear-gradient(to right, ${DIVERGING_COLORS.join(', ')})`,
           }}
         />
         <span>{formatSignedCurrency(maxChange)}</span>

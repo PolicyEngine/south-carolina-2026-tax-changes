@@ -46,6 +46,18 @@ SC_DATASET = "hf://policyengine/policyengine-us-data/states/SC.h5"
 # bracket thresholds at $3,560 and $17,830, no SCIAD deduction, and an
 # uncapped EITC.
 REFORM_DICT = {
+    "gov.states.sc.tax.income.rates.brackets[0].rate": {
+        "2026-01-01.2100-12-31": 0,
+    },
+    "gov.states.sc.tax.income.rates.brackets[1].threshold": {
+        "2026-01-01.2100-12-31": 3560,
+    },
+    "gov.states.sc.tax.income.rates.brackets[1].rate": {
+        "2026-01-01.2100-12-31": 0.03,
+    },
+    "gov.states.sc.tax.income.rates.brackets[2].threshold": {
+        "2026-01-01.2100-12-31": 17830,
+    },
     "gov.states.sc.tax.income.deductions.sciad.in_effect": {
         "2026-01-01.2100-12-31": False,
     },
@@ -63,9 +75,12 @@ REFORM_DICT = {
 )
 def calculate_year(year: int) -> dict:
     """Calculate South Carolina-wide impact for a single year on Modal."""
+    import re
+
     import numpy as np
     from policyengine_us import Microsimulation
     from policyengine_core.reforms import Reform
+    from policyengine_core.periods import instant
 
     print(f"Starting calculation for year {year}...")
 
@@ -78,7 +93,37 @@ def calculate_year(year: int) -> dict:
         "Gain more than 5%",
     ]
 
-    reform = Reform.from_dict(REFORM_DICT, country_id="us")
+    # Build a bracket-aware reform because ``Reform.from_dict`` does not
+    # understand ``name[N]`` segments in parameter paths.
+    def modify(parameters):
+        for path, periods in REFORM_DICT.items():
+            node = parameters
+            for segment in path.split("."):
+                match = re.match(r"(\w+)\[(\d+)\]", segment)
+                if match:
+                    node = getattr(node, match.group(1))[int(match.group(2))]
+                else:
+                    node = getattr(node, segment)
+            for period_str, value in periods.items():
+                if "." in period_str and len(period_str) > 10:
+                    start_str, stop_str = period_str.split(".")
+                else:
+                    start_str = (
+                        period_str if "-" in period_str else f"{period_str}-01-01"
+                    )
+                    stop_str = "2100-12-31"
+                node.update(
+                    start=instant(start_str),
+                    stop=instant(stop_str),
+                    value=value,
+                )
+        return parameters
+
+    class SCReform(Reform):
+        def apply(self):
+            self.modify_parameters(modify)
+
+    reform = SCReform
 
     print("  Creating baseline (current-law) simulation on SC dataset...")
     sim_baseline = Microsimulation(dataset=SC_DATASET)

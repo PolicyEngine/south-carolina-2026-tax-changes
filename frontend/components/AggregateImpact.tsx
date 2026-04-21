@@ -406,21 +406,110 @@ export default function AggregateImpact({ triggered }: Props) {
       })()}
 
       {/* ===== POVERTY IMPACT ===== */}
-      {activeSection === 'poverty' && (
-        <div className="space-y-6">
-          <div>
-            <h3 className="text-lg font-semibold text-gray-800 mb-3">Poverty impact</h3>
-            <div className="bg-gray-50 border border-gray-200 rounded-lg p-6">
-              <p className="text-gray-700">
-                We find no impact on poverty from these reforms.
+      {activeSection === 'poverty' && (() => {
+        const pov = data.poverty;
+        const pctChange = (baseline: number, reform: number) => {
+          if (!baseline || baseline === 0) return 0;
+          return ((reform - baseline) / baseline) * 100;
+        };
+        const povertyData = [
+          {
+            label: 'Overall',
+            value: pctChange(pov.poverty.all.baseline, pov.poverty.all.reform),
+          },
+          {
+            label: 'Child',
+            value: pctChange(pov.poverty.child.baseline, pov.poverty.child.reform),
+          },
+          {
+            label: 'Deep',
+            value: pctChange(pov.deep_poverty.all.baseline, pov.deep_poverty.all.reform),
+          },
+          {
+            label: 'Deep child',
+            value: pctChange(pov.deep_poverty.child.baseline, pov.deep_poverty.child.reform),
+          },
+        ];
+        const povMaxAbs = Math.max(...povertyData.map(d => Math.abs(d.value)), 0.01);
+        const povNiceStep = (() => {
+          const rough = povMaxAbs / 3;
+          const mag = Math.pow(10, Math.floor(Math.log10(rough || 0.01)));
+          const residual = rough / mag;
+          if (residual <= 1) return mag;
+          if (residual <= 2) return 2 * mag;
+          if (residual <= 5) return 5 * mag;
+          return 10 * mag;
+        })();
+        const povNiceMax = Math.ceil(povMaxAbs / povNiceStep) * povNiceStep;
+        const povDomain: [number, number] = [-povNiceMax, povNiceMax];
+        const povTicks = Array.from(
+          { length: Math.round((2 * povNiceMax) / povNiceStep) + 1 },
+          (_, i) => -povNiceMax + i * povNiceStep,
+        );
+
+        return (
+          <div className="space-y-6">
+            <div>
+              <h3 className="text-lg font-semibold text-gray-800 mb-3">
+                Change in poverty rates (%)
+              </h3>
+              <p className="text-gray-700 mb-3">
+                Percent change from pre-{SC_DASHBOARD_YEAR} law in Supplemental Poverty Measure rates.
               </p>
-              <p className="text-xs text-gray-500 mt-3">
-                Note: The 2026 South Carolina tax changes do not reach households below the Supplemental Poverty Measure threshold &mdash; their state tax liability is already zero, so rate cuts and deduction changes produce no change in net income at that level.
+              <ResponsiveContainer width="100%" height={360}>
+                <BarChart data={povertyData} margin={CHART_MARGIN}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--chart-grid)" />
+                  <XAxis
+                    dataKey="label"
+                    tick={TICK_STYLE}
+                    stroke="var(--chart-axis)"
+                    label={{
+                      value: 'Poverty measure',
+                      position: 'insideBottom',
+                      offset: -15,
+                      style: { ...TICK_STYLE, fill: 'var(--chart-axis-label)' },
+                    }}
+                  />
+                  <YAxis
+                    domain={povDomain}
+                    ticks={povTicks}
+                    tickFormatter={(v: number) =>
+                      `${v >= 0 ? '+' : ''}${v.toFixed(2)}%`
+                    }
+                    tick={TICK_STYLE}
+                    stroke="var(--chart-axis)"
+                    width={70}
+                  />
+                  <Tooltip
+                    content={
+                      <CustomTooltip
+                        formatter={(v) => `${v >= 0 ? '+' : ''}${v.toFixed(2)}%`}
+                      />
+                    }
+                  />
+                  <ReferenceLine y={0} stroke="var(--chart-axis)" strokeWidth={1} />
+                  <Bar
+                    dataKey="value"
+                    name="Change in poverty rate"
+                    radius={[2, 2, 0, 0]}
+                  >
+                    {povertyData.map((d, i) => (
+                      <Cell
+                        key={i}
+                        fill={d.value < 0 ? COLORS.positive : COLORS.negative}
+                      />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+              <ChartWatermark />
+              <p className="text-xs text-gray-500 mt-3 italic">
+                Note: The 2026 South Carolina tax changes do not reach households below the Supplemental Poverty Measure threshold &mdash; their state tax liability is already zero, so rate cuts and deduction changes produce no change in net income at that level. Small nonzero effects can arise from household composition (e.g., SPM units containing both poor and non-poor tax filers).
               </p>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       <p className="text-sm text-gray-500 bg-gray-50 rounded-lg px-4 py-3 border border-gray-200">
         These estimates are static: they do not capture behavioral responses such as changes in labor supply, tax avoidance, or migration.

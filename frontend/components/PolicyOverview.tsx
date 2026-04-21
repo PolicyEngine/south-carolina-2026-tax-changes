@@ -110,16 +110,6 @@ export default function PolicyOverview() {
           <ul className="text-sm text-gray-700 space-y-1">
             <li>
               <a
-                href="https://www.policyengine.org/us/state-legislative-tracker/SC/sc-h4216"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-primary-600 hover:underline"
-              >
-                PolicyEngine analysis
-              </a>
-            </li>
-            <li>
-              <a
                 href="https://www.scstatehouse.gov/sess126_2025-2026/bills/4216.htm"
                 target="_blank"
                 rel="noopener noreferrer"

@@ -121,8 +121,7 @@ export default function AggregateImpact({ triggered }: Props) {
   const sections = [
     { key: 'fiscal' as const, label: 'Budgetary impact' },
     { key: 'distributional' as const, label: 'Distributional impact' },
-    // Winners & losers tab temporarily hidden
-    // { key: 'winners' as const, label: 'Winners & losers' },
+    { key: 'winners' as const, label: 'Winners & losers' },
     { key: 'poverty' as const, label: 'Poverty impact' },
   ];
 

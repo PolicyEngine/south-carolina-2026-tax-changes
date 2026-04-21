@@ -1,0 +1,136 @@
+'use client';
+
+export default function PolicyOverview() {
+  return (
+    <div className="space-y-10">
+      {/* Summary */}
+      <div>
+        <h2 className="text-2xl font-bold text-gray-900 mb-4">
+          South Carolina 2026 Tax Changes
+        </h2>
+        <p className="text-gray-700 mb-4">
+          South Carolina&apos;s H.4216 (Act 110), signed March 30, 2026, restructured
+          the state income tax for tax years beginning after 2025. The bill introduces
+          new flat-ish tax brackets, replaces federal deductions with a state-specific
+          SCIAD deduction, and caps the state EITC at $200.
+        </p>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+          <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+            <h3 className="font-semibold text-gray-800 mb-2">Simplified brackets</h3>
+            <p className="text-sm text-gray-600">
+              Replaces the 2025 graduated rates (0%/3%/6%) with two brackets: 1.99%
+              on the first $30,000 of taxable income and 5.21% above.
+            </p>
+          </div>
+          <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+            <h3 className="font-semibold text-gray-800 mb-2">SCIAD deduction</h3>
+            <p className="text-sm text-gray-600">
+              New SC Income Adjusted Deduction replaces federal standard/itemized
+              deductions. Phased out at higher incomes; base amount varies by
+              filing status.
+            </p>
+          </div>
+          <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+            <h3 className="font-semibold text-gray-800 mb-2">Effective 2026</h3>
+            <p className="text-sm text-gray-600">
+              All three changes apply to tax years beginning after December 31,
+              2025.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Parameter changes table */}
+      <div>
+        <h3 className="text-lg font-semibold text-gray-900 mb-3">
+          Parameter changes (2026)
+        </h3>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-gray-200">
+                <th className="text-left py-3 px-4 font-semibold text-gray-900">Parameter</th>
+                <th className="text-right py-3 px-4 font-semibold text-gray-900">Pre-2026 law</th>
+                <th className="text-right py-3 px-4 font-semibold text-gray-900">Current law (2026)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr className="border-b border-gray-100">
+                <td className="py-3 px-4 text-gray-700">First bracket rate</td>
+                <td className="py-3 px-4 text-right text-gray-700">0%</td>
+                <td className="py-3 px-4 text-right text-gray-700">1.99%</td>
+              </tr>
+              <tr className="border-b border-gray-100">
+                <td className="py-3 px-4 text-gray-700">Second bracket rate</td>
+                <td className="py-3 px-4 text-right text-gray-700">3%</td>
+                <td className="py-3 px-4 text-right text-gray-700">5.21%</td>
+              </tr>
+              <tr className="border-b border-gray-100">
+                <td className="py-3 px-4 text-gray-700">First bracket top</td>
+                <td className="py-3 px-4 text-right text-gray-700">$3,560</td>
+                <td className="py-3 px-4 text-right text-gray-700">$30,000</td>
+              </tr>
+              <tr className="border-b border-gray-100">
+                <td className="py-3 px-4 text-gray-700">Second bracket top</td>
+                <td className="py-3 px-4 text-right text-gray-700">$17,830</td>
+                <td className="py-3 px-4 text-right text-gray-700">&infin; (no second top)</td>
+              </tr>
+              <tr className="border-b border-gray-100">
+                <td className="py-3 px-4 text-gray-700">SCIAD base (Single/MFS)</td>
+                <td className="py-3 px-4 text-right text-gray-700">N/A</td>
+                <td className="py-3 px-4 text-right text-gray-700">$15,000</td>
+              </tr>
+              <tr className="border-b border-gray-100">
+                <td className="py-3 px-4 text-gray-700">SCIAD base (HoH)</td>
+                <td className="py-3 px-4 text-right text-gray-700">N/A</td>
+                <td className="py-3 px-4 text-right text-gray-700">$22,500</td>
+              </tr>
+              <tr className="border-b border-gray-100">
+                <td className="py-3 px-4 text-gray-700">SCIAD base (Joint/Surviving)</td>
+                <td className="py-3 px-4 text-right text-gray-700">N/A</td>
+                <td className="py-3 px-4 text-right text-gray-700">$30,000</td>
+              </tr>
+              <tr className="border-b border-gray-100">
+                <td className="py-3 px-4 text-gray-700">State EITC cap</td>
+                <td className="py-3 px-4 text-right text-gray-700">None</td>
+                <td className="py-3 px-4 text-right text-gray-700">$200</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* References and further reading */}
+      <div>
+        <h3 className="text-lg font-semibold text-gray-900 mb-3">
+          References
+        </h3>
+        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+          <h4 className="font-semibold text-gray-800 mb-2">SC H.4216</h4>
+          <ul className="text-sm text-gray-700 space-y-1">
+            <li>
+              <a
+                href="https://www.policyengine.org/us/state-legislative-tracker/SC/sc-h4216"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary-600 hover:underline"
+              >
+                PolicyEngine analysis
+              </a>
+            </li>
+            <li>
+              <a
+                href="https://www.scstatehouse.gov/sess126_2025-2026/bills/4216.htm"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary-600 hover:underline"
+              >
+                Bill text
+              </a>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  );
+}

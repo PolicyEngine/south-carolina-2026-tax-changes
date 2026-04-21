@@ -14,7 +14,7 @@ export default function PolicyOverview() {
           new flat-ish tax brackets, replaces federal deductions with a state-specific
           SCIAD deduction, and caps the state EITC at $200.
         </p>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
           <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
             <h3 className="font-semibold text-gray-800 mb-2">Simplified brackets</h3>
             <p className="text-sm text-gray-600">
@@ -28,6 +28,14 @@ export default function PolicyOverview() {
               New SC Income Adjusted Deduction replaces federal standard/itemized
               deductions. Phased out at higher incomes; base amount varies by
               filing status.
+            </p>
+          </div>
+          <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+            <h3 className="font-semibold text-gray-800 mb-2">EITC cap</h3>
+            <p className="text-sm text-gray-600">
+              Caps South Carolina&apos;s state Earned Income Tax Credit at $200 per filer.
+              Previously the state credit was 125% of the federal EITC with no
+              dollar cap, so the cap reduces credits for most EITC-eligible filers.
             </p>
           </div>
           <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">

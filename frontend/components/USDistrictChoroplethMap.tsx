@@ -5,7 +5,6 @@ import {
   ComposableMap,
   Geographies,
   Geography,
-  ZoomableGroup,
 } from 'react-simple-maps';
 
 export interface SCDistrictData {
@@ -326,7 +325,6 @@ export default function SCDistrictChoroplethMap({
           height={500}
           style={{ width: '100%', height: '100%' }}
         >
-          <ZoomableGroup center={[-80.9, 33.9]} zoom={1} minZoom={1} maxZoom={4}>
             <Geographies geography={geoData}>
               {({ geographies }) =>
                 geographies.map((geo) => {
@@ -379,7 +377,6 @@ export default function SCDistrictChoroplethMap({
                 })
               }
             </Geographies>
-          </ZoomableGroup>
         </ComposableMap>
 
         {tooltip && (

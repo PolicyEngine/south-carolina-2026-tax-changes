@@ -9,15 +9,21 @@ interface Props {
 }
 
 // South Carolina representatives (119th Congress)
-const SC_REPRESENTATIVES: Record<string, string> = {
-  '1': 'Nancy Mace',
-  '2': 'Joe Wilson',
-  '3': 'Sheri Biggs',
-  '4': 'William Timmons',
-  '5': 'Ralph Norman',
-  '6': 'James Clyburn',
-  '7': 'Russell Fry',
+const SC_REPRESENTATIVES: Record<string, { name: string; party: 'R' | 'D' }> = {
+  '1': { name: 'Nancy Mace', party: 'R' },
+  '2': { name: 'Joe Wilson', party: 'R' },
+  '3': { name: 'Sheri Biggs', party: 'R' },
+  '4': { name: 'William Timmons', party: 'R' },
+  '5': { name: 'Ralph Norman', party: 'R' },
+  '6': { name: 'James Clyburn', party: 'D' },
+  '7': { name: 'Russell Fry', party: 'R' },
 };
+
+function partyColor(party: 'R' | 'D' | undefined) {
+  if (party === 'R') return '#dc2626'; // red-600
+  if (party === 'D') return '#2563eb'; // blue-600
+  return '#6b7280'; // gray-500
+}
 
 // South Carolina district regions (for context in labels)
 const SC_DISTRICT_REGIONS: Record<string, string> = {
@@ -67,7 +73,8 @@ export default function CongressionalDistrictImpact({ year = 2026 }: Props) {
             return {
               ...r,
               district_number: districtId,
-              representative: SC_REPRESENTATIVES[districtId] || '',
+              representative: SC_REPRESENTATIVES[districtId]?.name || '',
+              party: SC_REPRESENTATIVES[districtId]?.party,
               region: SC_DISTRICT_REGIONS[districtId] || '',
             } as SCDistrictData;
           })
@@ -187,7 +194,10 @@ export default function CongressionalDistrictImpact({ year = 2026 }: Props) {
                     SC-{String(d.district_number).padStart(2, '0')}
                     <span className="block text-xs text-gray-500 font-normal">{d.region}</span>
                   </td>
-                  <td className="py-3 px-4 text-gray-700">{d.representative}</td>
+                  <td className="py-3 px-4" style={{ color: partyColor(d.party) }}>
+                    {d.representative}
+                    {d.party ? <span className="ml-1 text-xs">({d.party})</span> : null}
+                  </td>
                   <td className="py-3 px-4 text-right text-gray-700">
                     {d.average_household_income_change >= 0 ? '+' : ''}
                     ${d.average_household_income_change.toLocaleString('en-US', { maximumFractionDigits: 0 })}
@@ -240,7 +250,10 @@ function DistrictDetailCard({
               South Carolina District {district.district_number}
             </h4>
             <p className="text-sm text-gray-500">
-              {district.representative}
+              <span style={{ color: partyColor(district.party) }}>
+                {district.representative}
+                {district.party ? ` (${district.party})` : ''}
+              </span>
               {district.region ? ` — ${district.region}` : ''}
             </p>
           </div>

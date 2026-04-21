@@ -46,18 +46,6 @@ SC_DATASET = "hf://policyengine/policyengine-us-data/states/SC.h5"
 # bracket thresholds at $3,560 and $17,830, no SCIAD deduction, and an
 # uncapped EITC.
 REFORM_DICT = {
-    "gov.states.sc.tax.income.rates.brackets[0].rate": {
-        "2026-01-01.2100-12-31": 0,
-    },
-    "gov.states.sc.tax.income.rates.brackets[1].threshold": {
-        "2026-01-01.2100-12-31": 3560,
-    },
-    "gov.states.sc.tax.income.rates.brackets[1].rate": {
-        "2026-01-01.2100-12-31": 0.03,
-    },
-    "gov.states.sc.tax.income.rates.brackets[2].threshold": {
-        "2026-01-01.2100-12-31": 17830,
-    },
     "gov.states.sc.tax.income.deductions.sciad.in_effect": {
         "2026-01-01.2100-12-31": False,
     },

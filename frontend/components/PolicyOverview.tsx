@@ -35,8 +35,7 @@ export default function PolicyOverview() {
             <p className="text-sm text-gray-600">
               Caps South Carolina&apos;s nonrefundable state Earned Income Tax Credit
               at $200 per filer. Previously the state credit was 125% of the
-              federal EITC with no dollar cap, so the cap reduces credits for
-              most EITC-eligible filers.
+              federal EITC with no dollar cap.
             </p>
           </div>
           <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">

@@ -11,8 +11,8 @@ export default function PolicyOverview() {
         <p className="text-gray-700 mb-4">
           South Carolina&apos;s H.4216 (Act 110), signed March 30, 2026, restructured
           the state income tax for tax years beginning after 2025. The bill introduces
-          new flat-ish tax brackets, replaces federal deductions with a state-specific
-          SCIAD deduction, and caps the state EITC at $200.
+          consolidates the three-bracket rate schedule into two brackets, replaces federal deductions with a state-specific
+          SCIAD deduction, and caps the nonrefundable state EITC at $200.
         </p>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
           <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">

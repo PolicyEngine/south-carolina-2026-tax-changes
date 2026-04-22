@@ -17,6 +17,21 @@ const GROUP_UNITS = ["families", "spm_units", "tax_units", "households"] as cons
  * Inline copy of /reform.json so the policy ships with the bundle.
  */
 const REFORM_POLICY: Record<string, Record<string, number | boolean>> = {
+  "gov.states.sc.tax.income.rates[0].rate": {
+    "2026-01-01.2100-12-31": 0,
+  },
+  "gov.states.sc.tax.income.rates[1].threshold": {
+    "2026-01-01.2100-12-31": 3560,
+  },
+  "gov.states.sc.tax.income.rates[1].rate": {
+    "2026-01-01.2100-12-31": 0.03,
+  },
+  "gov.states.sc.tax.income.rates[2].threshold": {
+    "2026-01-01.2100-12-31": 17830,
+  },
+  "gov.states.sc.tax.income.rates[2].rate": {
+    "2026-01-01.2100-12-31": 0.06,
+  },
   "gov.states.sc.tax.income.deductions.sciad.in_effect": {
     "2026-01-01.2100-12-31": false,
   },

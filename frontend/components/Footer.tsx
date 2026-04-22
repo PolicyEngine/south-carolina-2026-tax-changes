@@ -151,6 +151,18 @@ export default function Footer() {
               <p style={{ fontSize: '12px', color: 'var(--text-inverse)', margin: 0, fontFamily: FONT }}>
                 &copy; {new Date().getFullYear()} PolicyEngine. All rights reserved.
               </p>
+              <p style={{ fontSize: '11px', color: 'var(--text-inverse)', opacity: 0.8, margin: 0, fontFamily: FONT }}>
+                Calculations powered by{' '}
+                <a
+                  href="https://github.com/PolicyEngine/policyengine.py"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ color: 'var(--text-inverse)', textDecoration: 'underline' }}
+                >
+                  policyengine
+                </a>
+                {' '}v4.3.1
+              </p>
             </div>
           </div>
 

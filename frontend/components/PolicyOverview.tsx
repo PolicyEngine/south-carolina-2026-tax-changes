@@ -64,39 +64,19 @@ export default function PolicyOverview() {
             </thead>
             <tbody>
               <tr className="border-b border-gray-100">
-                <td className="py-3 px-4 text-gray-700">First bracket rate</td>
-                <td className="py-3 px-4 text-right text-gray-700">0%</td>
-                <td className="py-3 px-4 text-right text-gray-700">1.99%</td>
+                <td className="py-3 px-4 text-gray-700">Tax rates</td>
+                <td className="py-3 px-4 text-right text-gray-700">0% / 3% / 6%</td>
+                <td className="py-3 px-4 text-right text-gray-700">1.99% / 5.21%</td>
               </tr>
               <tr className="border-b border-gray-100">
-                <td className="py-3 px-4 text-gray-700">Second bracket rate</td>
-                <td className="py-3 px-4 text-right text-gray-700">3%</td>
-                <td className="py-3 px-4 text-right text-gray-700">5.21%</td>
-              </tr>
-              <tr className="border-b border-gray-100">
-                <td className="py-3 px-4 text-gray-700">First bracket top</td>
-                <td className="py-3 px-4 text-right text-gray-700">$3,560</td>
+                <td className="py-3 px-4 text-gray-700">Bracket thresholds</td>
+                <td className="py-3 px-4 text-right text-gray-700">$3,560 / $17,830</td>
                 <td className="py-3 px-4 text-right text-gray-700">$30,000</td>
               </tr>
               <tr className="border-b border-gray-100">
-                <td className="py-3 px-4 text-gray-700">Second bracket top</td>
-                <td className="py-3 px-4 text-right text-gray-700">$17,830</td>
-                <td className="py-3 px-4 text-right text-gray-700">&infin; (no second top)</td>
-              </tr>
-              <tr className="border-b border-gray-100">
-                <td className="py-3 px-4 text-gray-700">SCIAD base (Single/MFS)</td>
+                <td className="py-3 px-4 text-gray-700">SCIAD base (Single/MFS &middot; HoH &middot; Joint/Surviving)</td>
                 <td className="py-3 px-4 text-right text-gray-700">N/A</td>
-                <td className="py-3 px-4 text-right text-gray-700">$15,000</td>
-              </tr>
-              <tr className="border-b border-gray-100">
-                <td className="py-3 px-4 text-gray-700">SCIAD base (HoH)</td>
-                <td className="py-3 px-4 text-right text-gray-700">N/A</td>
-                <td className="py-3 px-4 text-right text-gray-700">$22,500</td>
-              </tr>
-              <tr className="border-b border-gray-100">
-                <td className="py-3 px-4 text-gray-700">SCIAD base (Joint/Surviving)</td>
-                <td className="py-3 px-4 text-right text-gray-700">N/A</td>
-                <td className="py-3 px-4 text-right text-gray-700">$30,000</td>
+                <td className="py-3 px-4 text-right text-gray-700">$15,000 / $22,500 / $30,000</td>
               </tr>
               <tr className="border-b border-gray-100">
                 <td className="py-3 px-4 text-gray-700">State EITC cap</td>

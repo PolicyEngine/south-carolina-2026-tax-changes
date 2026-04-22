@@ -161,7 +161,7 @@ export default function ImpactAnalysis({ request, triggered, maxEarnings }: Prop
         }}
       >
         <p style={{ margin: '0 0 4px', fontWeight: 600 }}>
-          Income: {formatCurrency(incomeLabel)}
+          Income: {formatCurrency(Math.round(incomeLabel / 100) * 100)}
         </p>
         <p style={{ margin: 0 }}>
           Federal tax change: {formatCurrencyWithSign(p.federalTaxChange)}

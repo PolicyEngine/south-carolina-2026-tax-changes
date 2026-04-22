@@ -51,6 +51,9 @@ REFORM_DICT = {
     "gov.states.sc.tax.income.rates.brackets[2].threshold": {
         "2026-01-01.2100-12-31": 17830,
     },
+    "gov.states.sc.tax.income.rates.brackets[2].rate": {
+        "2026-01-01.2100-12-31": 0.06,
+    },
     "gov.states.sc.tax.income.deductions.sciad.in_effect": {
         "2026-01-01.2100-12-31": False,
     },

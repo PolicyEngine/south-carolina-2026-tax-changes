@@ -34,7 +34,7 @@ export default function Home() {
   const TAB_CONFIG = [
     { id: 'policy' as const, label: 'Policy overview' },
     { id: 'impact' as const, label: 'Household impact' },
-    { id: 'aggregate' as const, label: 'National impact' },
+    { id: 'aggregate' as const, label: 'Statewide impact' },
     { id: 'districts' as const, label: 'Congressional districts' },
   ];
 
@@ -354,7 +354,7 @@ function HouseholdImpactTab() {
   );
 }
 
-/** National impact tab */
+/** Statewide impact tab */
 function NationalImpactTab() {
   return (
     <div className="space-y-6">

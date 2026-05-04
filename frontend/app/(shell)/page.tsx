@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useRef, useState } from 'react';
 import ImpactAnalysis from '@/components/ImpactAnalysis';
 import AggregateImpact from '@/components/AggregateImpact';
+import ExampleHouseholds, { type ExampleHouseholdProfile } from '@/components/ExampleHouseholds';
 import PolicyOverview from '@/components/PolicyOverview';
 import CongressionalDistrictImpact from '@/components/CongressionalDistrictImpact';
-import type { HouseholdRequest } from '@/lib/types';
+import type { HouseholdImpactResponse, HouseholdRequest } from '@/lib/types';
 import { parseHashParams } from '@/lib/embedding';
 
 const US_STATES = [
@@ -128,6 +129,16 @@ function HouseholdImpactTab() {
   const [maxEarnings, setMaxEarnings] = useState(100000);
   const [triggered, setTriggered] = useState(false);
   const [submittedRequest, setSubmittedRequest] = useState<HouseholdRequest | null>(null);
+  const [precomputedImpact, setPrecomputedImpact] =
+    useState<HouseholdImpactResponse | null>(null);
+  const [selectedExampleLabel, setSelectedExampleLabel] = useState<string | null>(null);
+  const impactRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (selectedExampleLabel && impactRef.current) {
+      impactRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [selectedExampleLabel]);
 
   // Listen for hash changes to update form values
   useEffect(() => {
@@ -191,15 +202,56 @@ function HouseholdImpactTab() {
   const handleCalculate = () => {
     setSubmittedRequest(buildRequest());
     setTriggered(true);
+    setPrecomputedImpact(null);
+    setSelectedExampleLabel(null);
+  };
+
+  /** Click handler from ExampleHouseholds. Mirrors the profile into
+   * the form fields and stashes the precomputed impact payload so
+   * ImpactAnalysis renders without firing a live request. */
+  const handleSelectExample = (
+    profile: ExampleHouseholdProfile,
+    response: HouseholdImpactResponse,
+  ) => {
+    setSelectedExampleLabel(profile.label);
+    setIncome(profile.income);
+    setAgeHead(profile.age_head);
+    setAgeHeadRaw(String(profile.age_head));
+    setMarried(profile.married);
+    setAgeSpouse(profile.married ? 35 : null);
+    setAgeSpouseRaw('35');
+    setDependentAges(profile.dependents);
+    setStateCode('SC');
+    const exampleMaxEarnings = response.x_axis_max ?? maxEarnings;
+    setMaxEarnings(exampleMaxEarnings);
+    setSubmittedRequest({
+      age_head: profile.age_head,
+      age_spouse: profile.married ? 35 : null,
+      dependent_ages: profile.dependents,
+      income: profile.income,
+      year: 2026,
+      max_earnings: exampleMaxEarnings,
+      state_code: 'SC',
+    });
+    setPrecomputedImpact(response);
+    setTriggered(true);
   };
 
   return (
     <div className="space-y-6">
+      {/* Pre-computed example households — clicking one populates the
+          form below and the existing impact chart with precomputed
+          values (no live API call). */}
+      <ExampleHouseholds
+        onSelect={handleSelectExample}
+        selectedLabel={selectedExampleLabel}
+      />
+
       {/* Inline household config */}
       <section className="bg-gray-50 rounded-xl p-6 md:p-8 border border-gray-200 shadow-sm">
         <h2 className="text-xl font-bold text-gray-900 mb-6">Your household</h2>
 
-        {/* Row 1: Income, Age, Filing status */}
+        {/* Row 1: Income, Ages (head + spouse), Marital status */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-5">
           {/* Employment income */}
           <div>
@@ -217,27 +269,50 @@ function HouseholdImpactTab() {
             </div>
           </div>
 
-          {/* Age */}
+          {/* Ages (head + spouse when married) */}
           <div>
-            <label className="block text-sm font-medium text-gray-600 mb-1.5">Your age</label>
-            <input
-              type="number"
-              value={ageHeadRaw}
-              onChange={(e) => setAgeHeadRaw(e.target.value)}
-              onBlur={() => {
-                const clamped = Math.max(18, Math.min(100, parseInt(ageHeadRaw) || 18));
-                setAgeHead(clamped);
-                setAgeHeadRaw(String(clamped));
-              }}
-              min={18}
-              max={100}
-              className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors"
-            />
+            <div className={married ? 'grid grid-cols-2 gap-3' : ''}>
+              <div>
+                <label className="block text-sm font-medium text-gray-600 mb-1.5">Your age</label>
+                <input
+                  type="number"
+                  value={ageHeadRaw}
+                  onChange={(e) => setAgeHeadRaw(e.target.value)}
+                  onBlur={() => {
+                    const clamped = Math.max(18, Math.min(100, parseInt(ageHeadRaw) || 18));
+                    setAgeHead(clamped);
+                    setAgeHeadRaw(String(clamped));
+                  }}
+                  min={18}
+                  max={100}
+                  className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors"
+                />
+              </div>
+              {married && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-600 mb-1.5">Spouse age</label>
+                  <input
+                    type="number"
+                    value={ageSpouseRaw}
+                    onChange={(e) => setAgeSpouseRaw(e.target.value)}
+                    onBlur={() => {
+                      const clamped = Math.max(18, Math.min(100, parseInt(ageSpouseRaw) || 18));
+                      setAgeSpouse(clamped);
+                      setAgeSpouseRaw(String(clamped));
+                    }}
+                    min={18}
+                    max={100}
+                    aria-label="Spouse age"
+                    className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors"
+                  />
+                </div>
+              )}
+            </div>
           </div>
 
-          {/* Married + spouse age */}
+          {/* Marital status */}
           <div>
-            <label className="block text-sm font-medium text-gray-600 mb-1.5">Filing status</label>
+            <label className="block text-sm font-medium text-gray-600 mb-1.5">Marital status</label>
             <label
               htmlFor="married"
               className="flex items-center gap-3 w-full px-3 py-2 bg-white border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors"
@@ -249,25 +324,8 @@ function HouseholdImpactTab() {
                 onChange={(e) => handleMarriedChange(e.target.checked)}
                 className="w-4 h-4 rounded border-gray-300 text-primary-500 focus:ring-primary-500"
               />
-              <span className="text-sm text-gray-700">Married filing jointly</span>
+              <span className="text-sm text-gray-700">Married</span>
             </label>
-            {married && (
-              <input
-                type="number"
-                value={ageSpouseRaw}
-                onChange={(e) => setAgeSpouseRaw(e.target.value)}
-                onBlur={() => {
-                  const clamped = Math.max(18, Math.min(100, parseInt(ageSpouseRaw) || 18));
-                  setAgeSpouse(clamped);
-                  setAgeSpouseRaw(String(clamped));
-                }}
-                min={18}
-                max={100}
-                placeholder="Spouse age"
-                aria-label="Spouse age"
-                className="w-full mt-2 px-3 py-2.5 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors"
-              />
-            )}
           </div>
         </div>
 
@@ -348,7 +406,14 @@ function HouseholdImpactTab() {
 
       {/* Impact results */}
       {submittedRequest && (
-        <ImpactAnalysis request={submittedRequest} triggered={triggered} maxEarnings={maxEarnings} />
+        <div ref={impactRef} className="scroll-mt-4">
+          <ImpactAnalysis
+            request={submittedRequest}
+            triggered={triggered}
+            maxEarnings={maxEarnings}
+            precomputed={precomputedImpact}
+          />
+        </div>
       )}
     </div>
   );

@@ -93,20 +93,37 @@ export default function PolicyOverview() {
         <h3 className="text-lg font-semibold text-gray-900 mb-3">
           References
         </h3>
-        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-          <h4 className="font-semibold text-gray-800 mb-2">SC H.4216</h4>
-          <ul className="text-sm text-gray-700 space-y-1">
-            <li>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+            <h4 className="font-semibold text-gray-800 mb-2">SC H.4216</h4>
+            <ul className="text-sm text-gray-700 space-y-1">
+              <li>
+                <a
+                  href="https://www.scstatehouse.gov/sess126_2025-2026/bills/4216.htm"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary-600 hover:underline"
+                >
+                  Bill text
+                </a>
+              </li>
+            </ul>
+          </div>
+          <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+            <h4 className="font-semibold text-gray-800 mb-2">Calculations</h4>
+            <p className="text-sm text-gray-700">
+              Powered by{' '}
               <a
-                href="https://www.scstatehouse.gov/sess126_2025-2026/bills/4216.htm"
+                href="https://github.com/PolicyEngine/policyengine.py"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-primary-600 hover:underline"
               >
-                Bill text
-              </a>
-            </li>
-          </ul>
+                policyengine
+              </a>{' '}
+              v4.3.1.
+            </p>
+          </div>
         </div>
       </div>
     </div>

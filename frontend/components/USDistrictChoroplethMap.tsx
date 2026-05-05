@@ -318,12 +318,12 @@ export default function SCDistrictChoroplethMap({
 
   return (
     <div className="relative">
-      <div className="w-full" style={{ height: 420 }}>
+      <div className="w-full" style={{ height: 600 }}>
         <ComposableMap
           projection="geoMercator"
-          projectionConfig={{ scale: 4000, center: [-80.9, 33.9] }}
-          width={800}
-          height={500}
+          projectionConfig={{ scale: 5800, center: [-80.9, 33.9] }}
+          width={900}
+          height={650}
           style={{ width: '100%', height: '100%' }}
         >
             <Geographies geography={geoData}>

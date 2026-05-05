@@ -336,7 +336,11 @@ export default function SCDistrictChoroplethMap({
                   const d = dataByNumber.get(districtNum);
                   const value = d?.average_household_income_change ?? 0;
                   const isSelected = selectedDistrict === districtNum;
-                  const fill = getImpactColor(value, minChange, maxChange);
+                  // Every SC district sees a positive average impact under
+                  // the 2026 changes, so we use a uniform teal fill instead
+                  // of a diverging scale.
+                  void value;
+                  const fill = '#319795';
                   return (
                     <Geography
                       key={geo.rsmKey || districtNum}
@@ -401,19 +405,9 @@ export default function SCDistrictChoroplethMap({
         )}
       </div>
 
-      {/* Legend */}
-      <div className="mt-4 flex items-center justify-center gap-3 text-sm text-gray-600">
-        <span>{formatSignedCurrency(minChange)}</span>
-        <div
-          className="h-3 w-48 rounded"
-          style={{
-            background: `linear-gradient(to right, ${DIVERGING_COLORS.join(', ')})`,
-          }}
-        />
-        <span>{formatSignedCurrency(maxChange)}</span>
-      </div>
-      <p className="text-xs text-gray-500 text-center mt-1">
-        Average household impact from South Carolina 2026 tax changes
+      <p className="text-xs text-gray-500 text-center mt-4">
+        Average household impact from South Carolina 2026 tax changes. Every
+        district sees a net gain on average; hover for the exact figure.
       </p>
     </div>
   );

@@ -47,7 +47,7 @@ export default function CongressionalDistrictImpact({ year = 2026 }: Props) {
       ? process.env.NEXT_PUBLIC_BASE_PATH
       : '/us/south-carolina-2026-tax-changes';
 
-    fetch(`${basePath}/data/congressional_districts.csv`)
+    fetch(`${basePath}/data/congressional_districts_revert.csv`)
       .then((res) => {
         if (!res.ok) throw new Error('Failed to load district data');
         return res.text();

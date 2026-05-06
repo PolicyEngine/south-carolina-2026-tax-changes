@@ -3,23 +3,18 @@
 Runs the inverse reform (pre-2026 parameters) against the South Carolina
 state dataset on Modal to compute the aggregate impact for tax year 2026.
 
-The reform and impact-sign conventions match sc_tax_calc.microsimulation:
-PolicyEngine-US already encodes the 2026 changes as baseline (H.4216 /
-Act 110), so we run the reverted-parameter reform and report
-``impact = baseline - reform``.
-
-Usage:
-    # Run the pipeline (computes 2026 on Modal)
-    modal run scripts/modal_pipeline.py
-
-    # Deploy as a scheduled job (optional)
-    modal deploy scripts/modal_pipeline.py
+The sign convention matches ``sc_tax_calc.microsimulation``: baseline
+sim applies the inverse reform (pre-2026 parameters) and reform sim is
+current law (H.4216 / Act 110), so ``impact = current_law - pre_2026``.
 """
 
 import json
 import os
 
 import modal
+
+# Single inverse-reform variant; CSVs are suffixed with this key.
+VARIANT = "revert"
 
 # Modal app definition
 app = modal.App("south-carolina-2026-tax-changes-pipeline")
@@ -128,41 +123,46 @@ def calculate_year(year: int) -> dict:
 
     reform = SCReform
 
-    print("  Creating baseline (current-law) simulation on SC dataset...")
-    sim_baseline = Microsimulation(dataset=SC_DATASET)
-    print("  Creating reverted-parameter simulation on SC dataset...")
-    sim_reform = Microsimulation(dataset=SC_DATASET, reform=reform)
+    print("  Creating baseline (pre-2026 parameters) simulation on SC dataset...")
+    sim_baseline = Microsimulation(dataset=SC_DATASET, reform=reform)
+    print("  Creating reform (current-law) simulation on SC dataset...")
+    sim_reform = Microsimulation(dataset=SC_DATASET)
 
     # ===== FISCAL IMPACT =====
     print("  Calculating fiscal impact...")
     fed_baseline = sim_baseline.calculate("income_tax", period=year, map_to="household")
     fed_reform = sim_reform.calculate("income_tax", period=year, map_to="household")
-    federal_tax_revenue_impact = float((fed_baseline - fed_reform).sum())
+    federal_tax_revenue_impact = float((fed_reform - fed_baseline).sum())
 
     sc_baseline = sim_baseline.calculate("sc_income_tax", period=year, map_to="household")
     sc_reform = sim_reform.calculate("sc_income_tax", period=year, map_to="household")
-    state_tax_revenue_impact = float((sc_baseline - sc_reform).sum())
+    state_tax_revenue_impact = float((sc_reform - sc_baseline).sum())
 
     tax_revenue_impact = federal_tax_revenue_impact + state_tax_revenue_impact
     budgetary_impact = tax_revenue_impact
 
     baseline_net_income = sim_baseline.calculate("household_net_income", period=year, map_to="household")
     reform_net_income = sim_reform.calculate("household_net_income", period=year, map_to="household")
-    income_change = baseline_net_income - reform_net_income  # current_law - reverted
+    income_change = reform_net_income - baseline_net_income  # current_law - pre_2026
+    change_arr = np.array(income_change)
+    baseline_net_income_arr = np.array(baseline_net_income)
+    household_weight = sim_reform.calculate("household_weight", period=year)
+    weight_arr = np.array(household_weight)
 
-    total_households = float((income_change * 0 + 1).sum())
+    total_households = float(weight_arr.sum())
 
     # ===== WINNERS / LOSERS =====
     print("  Calculating winners/losers...")
-    winners = float((income_change > 1).sum())
-    losers = float((income_change < -1).sum())
-    beneficiaries = float((income_change > 0).sum())
-
-    affected = abs(income_change) > 1
-    affected_count = float(affected.sum())
+    winners = float(weight_arr[change_arr > 1].sum())
+    losers = float(weight_arr[change_arr < -1].sum())
+    beneficiary_mask = change_arr > 0
+    beneficiaries = float(weight_arr[beneficiary_mask].sum())
     avg_benefit = (
-        float(income_change[affected].sum() / affected.sum())
-        if affected_count > 0
+        float(
+            (change_arr[beneficiary_mask] * weight_arr[beneficiary_mask]).sum()
+            / beneficiaries
+        )
+        if beneficiaries > 0
         else 0.0
     )
 
@@ -177,10 +177,13 @@ def calculate_year(year: int) -> dict:
     decile_relative = {}
     for d in range(1, 11):
         dmask = decile == d
-        d_count = float(dmask.sum())
+        d_weight = weight_arr[dmask]
+        d_count = float(d_weight.sum())
         if d_count > 0:
-            d_baseline_sum = float(baseline_net_income[dmask].sum())
-            d_change_sum = float(income_change[dmask].sum())
+            d_baseline_sum = float(
+                (baseline_net_income_arr[dmask] * d_weight).sum()
+            )
+            d_change_sum = float((change_arr[dmask] * d_weight).sum())
             decile_average[str(d)] = d_change_sum / d_count
             decile_relative[str(d)] = d_change_sum / d_baseline_sum if d_baseline_sum != 0 else 0.0
         else:
@@ -188,13 +191,11 @@ def calculate_year(year: int) -> dict:
             decile_relative[str(d)] = 0.0
 
     # Intra-decile
-    household_weight = sim_reform.calculate("household_weight", period=year)
     people_per_hh = sim_baseline.calculate("household_count_people", period=year, map_to="household")
-    capped_baseline = np.maximum(np.array(reform_net_income), 1)
-    rel_change_arr = np.array(income_change) / capped_baseline
+    capped_baseline = np.maximum(baseline_net_income_arr, 1)
+    rel_change_arr = change_arr / capped_baseline
 
     decile_arr = np.array(decile)
-    weight_arr = np.array(household_weight)
     people_weighted = np.array(people_per_hh) * weight_arr
 
     intra_decile_deciles = {label: [] for label in intra_labels}
@@ -267,8 +268,7 @@ def calculate_year(year: int) -> dict:
     print("  Calculating income brackets...")
     agi = sim_baseline.calculate("adjusted_gross_income", period=year, map_to="household")
     agi_arr = np.array(agi)
-    change_arr = np.array(income_change)
-    affected_mask = np.abs(change_arr) > 1
+    beneficiary_mask = change_arr > 0
 
     income_brackets = [
         (0, 25_000, "$0 - $25k"),
@@ -282,9 +282,9 @@ def calculate_year(year: int) -> dict:
 
     by_income_bracket = []
     for min_inc, max_inc, label in income_brackets:
-        mask = (agi_arr >= min_inc) & (agi_arr < max_inc) & affected_mask
-        bracket_affected = float(weight_arr[mask].sum())
-        if bracket_affected > 0:
+        mask = (agi_arr >= min_inc) & (agi_arr < max_inc) & beneficiary_mask
+        bracket_beneficiaries = float(weight_arr[mask].sum())
+        if bracket_beneficiaries > 0:
             bracket_cost = float((change_arr[mask] * weight_arr[mask]).sum())
             bracket_avg = float(np.average(change_arr[mask], weights=weight_arr[mask]))
         else:
@@ -292,7 +292,7 @@ def calculate_year(year: int) -> dict:
             bracket_avg = 0.0
         by_income_bracket.append({
             "bracket": label,
-            "beneficiaries": bracket_affected,
+            "beneficiaries": bracket_beneficiaries,
             "total_cost": bracket_cost,
             "avg_benefit": bracket_avg,
         })
@@ -478,9 +478,9 @@ def main(years: str = ""):
         combined_df.to_csv(filepath, index=False)
         print(f"Saved: {filepath}")
 
-    merge_and_save(distributional_rows, "distributional_impact.csv", target_years)
-    merge_and_save(metrics_rows, "metrics.csv", target_years)
-    merge_and_save(winners_losers_rows, "winners_losers.csv", target_years)
-    merge_and_save(income_bracket_rows, "income_brackets.csv", target_years)
+    merge_and_save(distributional_rows, f"distributional_impact_{VARIANT}.csv", target_years)
+    merge_and_save(metrics_rows, f"metrics_{VARIANT}.csv", target_years)
+    merge_and_save(winners_losers_rows, f"winners_losers_{VARIANT}.csv", target_years)
+    merge_and_save(income_bracket_rows, f"income_brackets_{VARIANT}.csv", target_years)
 
     print(f"\nDone! All data saved to {output_dir}/")

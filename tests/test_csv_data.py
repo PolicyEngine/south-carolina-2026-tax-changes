@@ -26,13 +26,13 @@ EXPECTED_BRACKETS = {
 
 
 class TestDistributionalImpactCSV:
-    """Tests for distributional_impact.csv."""
+    """Tests for distributional_impact_revert.csv."""
 
     @pytest.fixture
     def data(self):
-        filepath = DATA_DIR / "distributional_impact.csv"
+        filepath = DATA_DIR / "distributional_impact_revert.csv"
         if not filepath.exists():
-            pytest.skip("distributional_impact.csv not generated yet")
+            pytest.skip("distributional_impact_revert.csv not generated yet")
         with open(filepath, "r") as f:
             return list(csv.DictReader(f))
 
@@ -57,13 +57,13 @@ class TestDistributionalImpactCSV:
 
 
 class TestMetricsCSV:
-    """Tests for metrics.csv."""
+    """Tests for metrics_revert.csv."""
 
     @pytest.fixture
     def data(self):
-        filepath = DATA_DIR / "metrics.csv"
+        filepath = DATA_DIR / "metrics_revert.csv"
         if not filepath.exists():
-            pytest.skip("metrics.csv not generated yet")
+            pytest.skip("metrics_revert.csv not generated yet")
         with open(filepath, "r") as f:
             return list(csv.DictReader(f))
 
@@ -93,13 +93,13 @@ class TestMetricsCSV:
 
 
 class TestWinnersLosersCSV:
-    """Tests for winners_losers.csv."""
+    """Tests for winners_losers_revert.csv."""
 
     @pytest.fixture
     def data(self):
-        filepath = DATA_DIR / "winners_losers.csv"
+        filepath = DATA_DIR / "winners_losers_revert.csv"
         if not filepath.exists():
-            pytest.skip("winners_losers.csv not generated yet")
+            pytest.skip("winners_losers_revert.csv not generated yet")
         with open(filepath, "r") as f:
             return list(csv.DictReader(f))
 
@@ -133,13 +133,13 @@ class TestWinnersLosersCSV:
 
 
 class TestIncomeBracketsCSV:
-    """Tests for income_brackets.csv."""
+    """Tests for income_brackets_revert.csv."""
 
     @pytest.fixture
     def data(self):
-        filepath = DATA_DIR / "income_brackets.csv"
+        filepath = DATA_DIR / "income_brackets_revert.csv"
         if not filepath.exists():
-            pytest.skip("income_brackets.csv not generated yet")
+            pytest.skip("income_brackets_revert.csv not generated yet")
         with open(filepath, "r") as f:
             return list(csv.DictReader(f))
 
@@ -159,13 +159,13 @@ class TestIncomeBracketsCSV:
 
 
 class TestCongressionalDistrictsCSV:
-    """Tests for congressional_districts.csv (South Carolina only)."""
+    """Tests for congressional_districts_revert.csv (South Carolina only)."""
 
     @pytest.fixture
     def data(self):
-        filepath = DATA_DIR / "congressional_districts.csv"
+        filepath = DATA_DIR / "congressional_districts_revert.csv"
         if not filepath.exists():
-            pytest.skip("congressional_districts.csv not generated yet")
+            pytest.skip("congressional_districts_revert.csv not generated yet")
         with open(filepath, "r") as f:
             return list(csv.DictReader(f))
 

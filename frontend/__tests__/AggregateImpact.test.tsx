@@ -59,16 +59,16 @@ beforeEach(() => {
   global.fetch = vi.fn((url: string) => {
     const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
 
-    if (url.includes('metrics.csv')) {
+    if (url.includes('metrics_revert.csv')) {
       return Promise.resolve({ ok: true, text: () => Promise.resolve(mockMetricsCSV) });
     }
-    if (url.includes('distributional_impact.csv')) {
+    if (url.includes('distributional_impact_revert.csv')) {
       return Promise.resolve({ ok: true, text: () => Promise.resolve(mockDistributionalCSV) });
     }
-    if (url.includes('winners_losers.csv')) {
+    if (url.includes('winners_losers_revert.csv')) {
       return Promise.resolve({ ok: true, text: () => Promise.resolve(mockWinnersLosersCSV) });
     }
-    if (url.includes('income_brackets.csv')) {
+    if (url.includes('income_brackets_revert.csv')) {
       return Promise.resolve({ ok: true, text: () => Promise.resolve(mockIncomeBracketsCSV) });
     }
     return Promise.resolve({ ok: false, status: 404 });

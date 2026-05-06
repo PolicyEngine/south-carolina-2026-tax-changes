@@ -1,17 +1,10 @@
-"""
-Reform definitions for the 2026 South Carolina tax changes dashboard.
+"""Reform definitions for the South Carolina 2026 tax changes dashboard.
 
-The 2026 South Carolina tax changes enacted by H.4216 (Act 110) — new
-flat-ish brackets (1.99% on the first $30,000 of taxable income, 5.21%
-above), a new SC Income Adjusted Deduction (SCIAD) replacing federal
-standard/itemized deductions, and a $200 cap on the SC EITC — are
-already merged into PolicyEngine-US's baseline parameters (PR #7917).
-To measure their impact we therefore run an *inverse* reform that
-restores the pre-2026 (2025) parameter values: 0%/3%/6% rate schedule
-with bracket thresholds at $3,560 and $17,830, no SCIAD (federal-style
-deductions), and an uncapped EITC at 125% of the federal credit.
-
-The reform parameters live in ``reform.json`` at the repository root.
+PolicyEngine-US current law already includes H.4216 (Act 110). To
+isolate the package, this module applies an inverse reform that
+restores the pre-2026 (2025) parameters via
+:func:`create_sc_reverted_reform`. Use the builder rather than
+``Reform.from_dict`` because the JSON paths use bracket-index segments.
 """
 
 from __future__ import annotations
@@ -21,23 +14,65 @@ from pathlib import Path
 from typing import Any, Dict
 
 
-# Path to the reform.json file at the repository root
-REFORM_PATH = Path(__file__).resolve().parent.parent / "reform.json"
+# Path to the canonical inverse-reform JSON at the repository root.
+REFORM_PATH = Path(__file__).resolve().parent.parent / "reform_revert.json"
 
 
 def load_reform() -> Dict[str, Any]:
-    """Load the South Carolina 2026 inverse reform dictionary from ``reform.json``.
+    """Load the SC inverse reform dictionary from ``reform_revert.json``.
 
-    The returned dictionary reverts the H.4216 (Act 110) rate schedule,
-    SCIAD deduction, and EITC cap to their 2025 values. Pass the result
-    to ``Reform.from_dict(load_reform(), country_id="us")`` to build a
-    reform whose effect is the opposite sign of current law.
+    The returned dictionary reverts the H.4216 (Act 110) parameters to
+    their 2025 values. Use :func:`create_sc_reverted_reform` to build
+    the PolicyEngine reform class — the JSON paths use bracket-index
+    segments.
 
     Returns:
-        A reform dictionary suitable for PolicyEngine's ``Reform.from_dict``.
+        A dictionary of parameter overrides.
     """
     with open(REFORM_PATH, "r", encoding="utf-8") as f:
-        return json.load(f)
+        data = json.load(f)
+    data.pop("_comment", None)
+    return data
+
+
+def create_sc_reverted_reform():
+    """Build a PolicyEngine Reform that restores pre-H.4216 SC parameters."""
+    import re
+
+    from policyengine_core.periods import instant
+    from policyengine_core.reforms import Reform
+
+    overrides = load_reform()
+
+    def modify(parameters):
+        for path, periods in overrides.items():
+            node = parameters
+            for segment in path.split("."):
+                match = re.match(r"(\w+)\[(\d+)\]", segment)
+                if match:
+                    node = getattr(node, match.group(1))[int(match.group(2))]
+                else:
+                    node = getattr(node, segment)
+            for period_str, value in periods.items():
+                if "." in period_str and len(period_str) > 10:
+                    start_str, stop_str = period_str.split(".")
+                else:
+                    start_str = (
+                        period_str if "-" in period_str else f"{period_str}-01-01"
+                    )
+                    stop_str = "2100-12-31"
+                node.update(
+                    start=instant(start_str),
+                    stop=instant(stop_str),
+                    value=value,
+                )
+        return parameters
+
+    class SCRevertedRatesReform(Reform):
+        def apply(self):
+            self.modify_parameters(modify)
+
+    return SCRevertedRatesReform
 
 
 def get_reform_provisions() -> Dict[str, Dict[str, Any]]:

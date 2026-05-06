@@ -1,12 +1,11 @@
-"""Modal-based congressional-district impact pipeline for the South Carolina 2026 tax changes.
+"""Modal-based congressional-district impact pipeline for the SC 2026 tax changes.
 
-Calculates actual district-level impacts for South Carolina's seven
-congressional districts (SC-01..SC-07; state_fips=45) using district-
-specific datasets on HuggingFace.
+Calculates district-level impacts for South Carolina's seven
+congressional districts (SC-01..SC-07; state_fips=45) using
+district-specific datasets on HuggingFace.
 
-Uses the inverse reform (reverting 2026 SC parameters to 2025 values)
-and reports ``impact = current_law - reverted``, matching the aggregate
-pipeline.
+Baseline sim applies the inverse reform (pre-2026 parameters); reform
+sim is current law. Impact = current_law - pre_2026.
 
 Usage:
     modal run scripts/modal_district_pipeline.py
@@ -15,6 +14,9 @@ Usage:
 import os
 
 import modal
+
+# Single inverse-reform variant; CSV is suffixed with this key.
+VARIANT = "revert"
 
 # Modal app definition
 app = modal.App("south-carolina-2026-tax-changes-district-pipeline")
@@ -81,8 +83,7 @@ def calculate_single_district_impact(district_id: str, year: int = YEAR) -> dict
 
     Uses the district-specific dataset on HuggingFace. Returns winners/
     losers share, average and relative income change, and poverty
-    percent changes. All figures use the impact = current_law - reverted
-    convention.
+    percent changes. Impact = current_law - pre_2026.
     """
     import re
 
@@ -128,14 +129,14 @@ def calculate_single_district_impact(district_id: str, year: int = YEAR) -> dict
 
         reform = SCReform
 
-        sim_baseline = Microsimulation(dataset=dataset_url)
-        sim_reform = Microsimulation(dataset=dataset_url, reform=reform)
+        sim_baseline = Microsimulation(dataset=dataset_url, reform=reform)
+        sim_reform = Microsimulation(dataset=dataset_url)
 
         household_weight = np.array(sim_baseline.calculate("household_weight", period=year))
         baseline_net_income = np.array(sim_baseline.calculate("household_net_income", period=year))
         reform_net_income = np.array(sim_reform.calculate("household_net_income", period=year))
-        # current_law - reverted
-        income_change = baseline_net_income - reform_net_income
+        # current_law - pre_2026
+        income_change = reform_net_income - baseline_net_income
 
         total_weight = household_weight.sum()
 
@@ -164,7 +165,7 @@ def calculate_single_district_impact(district_id: str, year: int = YEAR) -> dict
 
                 baseline_poverty_rate = (baseline_in_poverty * spm_unit_weight).sum() / total_spm_weight
                 reform_poverty_rate = (reform_in_poverty * spm_unit_weight).sum() / total_spm_weight
-                # impact = current_law - reverted
+                # baseline = pre_2026, reform = current_law
                 poverty_pct_change = (
                     (baseline_poverty_rate - reform_poverty_rate) / reform_poverty_rate * 100
                     if reform_poverty_rate > 0
@@ -249,7 +250,7 @@ def main(year: int = YEAR):
     df = pd.DataFrame(new_districts)
     df = df.sort_values(["state", "district"]).reset_index(drop=True)
 
-    filepath = os.path.join(output_dir, "congressional_districts.csv")
+    filepath = os.path.join(output_dir, f"congressional_districts_{VARIANT}.csv")
     df.to_csv(filepath, index=False)
     print(f"\nSaved {len(df)} districts to: {filepath}")
 

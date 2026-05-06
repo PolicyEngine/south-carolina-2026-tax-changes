@@ -1,10 +1,10 @@
-"""
-Household situation builder for the 2026 South Carolina tax changes calculator.
+"""Household situation builder for the SC H.4216 calculator.
 
 This module builds PolicyEngine household situations used by the
 household calculator view. The calculator contrasts current-law 2026
-(baseline, H.4216 / Act 110) with the pre-2026 (reverted) parameters
-described in ``reform.json``; ``impact = current_law - reverted``.
+(reform scenario) with the pre-2026 parameters described in
+``reform_revert.json`` (baseline scenario); ``impact = current_law -
+pre_2026``.
 """
 
 from typing import Any, Dict, List, Optional
@@ -126,13 +126,11 @@ def calculate_household_impact(
     max_earnings: float,
     state_code: str = "SC",
 ) -> Dict[str, Any]:
-    """
-    Calculate household impact of the 2026 South Carolina tax changes using PolicyEngine.
+    """Calculate household impact of SC H.4216 (Act 110) using PolicyEngine.
 
-    This is the Python equivalent of the calculator view in the frontend.
-    It runs two simulations — the current-law (PolicyEngine baseline) and
-    the reverted-to-2025 (reform applied) case — and returns
-    ``impact = baseline - reform``.
+    This is the Python equivalent of the calculator view in the frontend:
+    pre-2026 parameters are the baseline, current law is the reform, and
+    impact is current law minus pre-2026 law.
 
     Args:
         age_head: Age of the primary filer
@@ -150,14 +148,13 @@ def calculate_household_impact(
     # Import here so the module can be imported without policyengine_us
     try:
         from policyengine_us import Simulation
-        from policyengine_core.reforms import Reform
     except ImportError:
         raise ImportError(
             "policyengine_us is required for calculate_household_impact. "
             "Install it with: pip install policyengine-us"
         )
 
-    from .reforms import load_reform
+    from .reforms import create_sc_reverted_reform
 
     situation = build_household_situation(
         age_head=age_head,
@@ -170,25 +167,24 @@ def calculate_household_impact(
         include_axes=True,
     )
 
-    # Baseline = current 2026 law already merged into PolicyEngine-US
-    baseline_sim = Simulation(situation=situation)
+    # Baseline = pre-2026 parameters. Reform = current law.
+    baseline_sim = Simulation(
+        situation=situation,
+        reform=create_sc_reverted_reform(),
+    )
     baseline_net_income = baseline_sim.calculate("household_net_income", year)
     baseline_sc_income_tax = baseline_sim.calculate("sc_income_tax", year)
     baseline_income_tax = baseline_sim.calculate("income_tax", year)
     income_range = baseline_sim.calculate("employment_income", year)
 
-    # Reform = reverted parameters (pre-2026 values from reform.json)
-    reform = Reform.from_dict(load_reform(), country_id="us")
-    reform_sim = Simulation(situation=situation, reform=reform)
+    reform_sim = Simulation(situation=situation)
     reform_net_income = reform_sim.calculate("household_net_income", year)
     reform_sc_income_tax = reform_sim.calculate("sc_income_tax", year)
     reform_income_tax = reform_sim.calculate("income_tax", year)
 
-    # Impact is current-law minus reverted (flipped from the typical
-    # reform - baseline formulation because our reform reverts policy).
-    net_income_change = baseline_net_income - reform_net_income
-    sc_income_tax_change = baseline_sc_income_tax - reform_sc_income_tax
-    income_tax_change = baseline_income_tax - reform_income_tax
+    net_income_change = reform_net_income - baseline_net_income
+    sc_income_tax_change = reform_sc_income_tax - baseline_sc_income_tax
+    income_tax_change = reform_income_tax - baseline_income_tax
 
     def interpolate(xs: np.ndarray, ys: np.ndarray, x: float) -> float:
         if x <= xs[0]:
@@ -206,9 +202,9 @@ def calculate_household_impact(
         "sc_income_tax_change": sc_income_tax_change.tolist(),
         "income_tax_change": income_tax_change.tolist(),
         "benefit_at_income": {
-            "current_law": baseline_at_income,
-            "reverted": reform_at_income,
-            "difference": baseline_at_income - reform_at_income,
+            "current_law": reform_at_income,
+            "pre_2026": baseline_at_income,
+            "difference": reform_at_income - baseline_at_income,
         },
         "x_axis_max": max_earnings,
     }

@@ -129,10 +129,10 @@ def main():
 
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-    pd.DataFrame(all_metrics).to_csv(f"{OUTPUT_DIR}/metrics.csv", index=False)
-    pd.DataFrame(all_distributional).to_csv(f"{OUTPUT_DIR}/distributional_impact.csv", index=False)
-    pd.DataFrame(all_winners_losers).to_csv(f"{OUTPUT_DIR}/winners_losers.csv", index=False)
-    pd.DataFrame(all_income_brackets).to_csv(f"{OUTPUT_DIR}/income_brackets.csv", index=False)
+    pd.DataFrame(all_metrics).to_csv(f"{OUTPUT_DIR}/metrics_revert.csv", index=False)
+    pd.DataFrame(all_distributional).to_csv(f"{OUTPUT_DIR}/distributional_impact_revert.csv", index=False)
+    pd.DataFrame(all_winners_losers).to_csv(f"{OUTPUT_DIR}/winners_losers_revert.csv", index=False)
+    pd.DataFrame(all_income_brackets).to_csv(f"{OUTPUT_DIR}/income_brackets_revert.csv", index=False)
 
     print(f"\nCSV files written to {OUTPUT_DIR}/")
 

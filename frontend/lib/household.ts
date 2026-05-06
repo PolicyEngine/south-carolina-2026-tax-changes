@@ -14,7 +14,7 @@ const GROUP_UNITS = ["families", "spm_units", "tax_units", "households"] as cons
 
 /**
  * Revert South Carolina's 2026 tax parameters to 2025 values.
- * Inline copy of /reform.json so the policy ships with the bundle.
+ * Inline copy of /reform_revert.json so the policy ships with the bundle.
  */
 const REFORM_POLICY: Record<string, Record<string, number | boolean>> = {
   "gov.states.sc.tax.income.rates[0].rate": {

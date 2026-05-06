@@ -183,10 +183,10 @@ def generate_all_data(output_dir: str = None) -> dict[str, pd.DataFrame]:
     os.makedirs(output_dir, exist_ok=True)
 
     paths = {
-        "distributional_impact": os.path.join(output_dir, "distributional_impact.csv"),
-        "metrics": os.path.join(output_dir, "metrics.csv"),
-        "winners_losers": os.path.join(output_dir, "winners_losers.csv"),
-        "income_brackets": os.path.join(output_dir, "income_brackets.csv"),
+        "distributional_impact": os.path.join(output_dir, "distributional_impact_revert.csv"),
+        "metrics": os.path.join(output_dir, "metrics_revert.csv"),
+        "winners_losers": os.path.join(output_dir, "winners_losers_revert.csv"),
+        "income_brackets": os.path.join(output_dir, "income_brackets_revert.csv"),
     }
 
     # Check which years are already computed

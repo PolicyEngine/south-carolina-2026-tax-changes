@@ -1,34 +1,17 @@
-"""Aggregate impact calculations for the 2026 South Carolina tax changes.
+"""Aggregate impact calculations for the South Carolina 2026 tax changes.
 
-Uses the South Carolina state-level microsimulation dataset
-(``hf://policyengine/policyengine-us-data/states/SC.h5``) to calculate
-the impact of H.4216 (Act 110): new flat-ish brackets (1.99% / 5.21%),
-the new SC Income Adjusted Deduction (SCIAD), and the $200 cap on the
-SC EITC.
-
-Because PolicyEngine-US already encodes the 2026 changes in the baseline
-(PR #7917), the reform in ``reform.json`` reverts those parameters to
-their pre-2026 (2025) values. The impact is therefore defined as::
-
-    impact = current_law_outcome - reverted_outcome
-
-The flipped sign (relative to a conventional reform-vs-baseline diff) is
-deliberate — it lets the dashboard show the benefit or cost of the
-policy as currently enacted.
-
-Pulls ``sc_income_tax``, ``income_tax`` (federal), and
-``household_net_income``; all distributional analysis (winners/losers,
-deciles, intra-decile) runs off ``household_net_income``.
+PolicyEngine-US current law already includes H.4216 (Act 110). This
+module compares current law to an inverse reform that restores the
+pre-2026 (2025) parameters, so impact is ``current_law - pre_2026``.
 """
 
 import numpy as np
 from policyengine_us import Microsimulation
-from policyengine_core.reforms import Reform
 
-from .reforms import load_reform
+from .reforms import create_sc_reverted_reform
 
 
-# South Carolina state-level dataset on HuggingFace
+# South Carolina state-level dataset on HuggingFace.
 SC_DATASET = "hf://policyengine/policyengine-us-data/states/SC.h5"
 
 # Intra-decile bounds and labels (same as app-v2)
@@ -42,17 +25,14 @@ _INTRA_LABELS = [
 ]
 
 
-def create_sc_reverted_reform() -> Reform:
-    """Build the inverse reform that reverts SC parameters to pre-2026 values."""
-    return Reform.from_dict(load_reform(), country_id="us")
-
-
 def _poverty_metrics(baseline_rate: float, reform_rate: float):
     """Return rate change and percent change for a poverty metric.
 
-    ``baseline_rate`` is the current-law rate; ``reform_rate`` is the
-    rate under the reverted parameters. The returned change is
-    current_law - reverted, matching the impact sign convention.
+    ``baseline_rate`` is the pre-2026 rate (sim with reform applied);
+    ``reform_rate`` is the current-law rate (sim with no reform). The
+    returned change matches the income-impact sign convention: positive
+    when current law improves the metric for households (i.e. reduces
+    poverty).
     """
     rate_change = baseline_rate - reform_rate
     percent_change = (
@@ -62,25 +42,21 @@ def _poverty_metrics(baseline_rate: float, reform_rate: float):
 
 
 def calculate_aggregate_impact(year: int = 2026) -> dict:
-    """Calculate the South Carolina-wide aggregate impact of the 2026 tax changes.
+    """Calculate the South Carolina aggregate impact of H.4216 (Act 110).
 
     Args:
-        year: Tax year (default 2026). Only 2026 is meaningful; prior
-            years are before the reform took effect.
+        year: Tax year (default 2026).
 
     Returns:
         Dictionary with budget, decile, intra_decile, poverty, and
-        income-bracket fields. All money amounts are current_law minus
-        reverted (positive = gain for households, negative = cost to
-        government). State-revenue impact typically reflects the net of
-        the rate cut, the new SCIAD deduction, and the EITC cap.
+        income-bracket fields. All money amounts are current law minus
+        pre-2026 law.
     """
     reform = create_sc_reverted_reform()
 
-    # Both sims use the South Carolina state dataset so aggregates
-    # reflect South Carolina only.
-    sim_baseline = Microsimulation(dataset=SC_DATASET)
-    sim_reform = Microsimulation(dataset=SC_DATASET, reform=reform)
+    # Baseline = pre-2026 parameters. Reform = current law.
+    sim_baseline = Microsimulation(dataset=SC_DATASET, reform=reform)
+    sim_reform = Microsimulation(dataset=SC_DATASET)
 
     # ===== FISCAL IMPACT =====
     # South Carolina state income tax
@@ -90,10 +66,7 @@ def calculate_aggregate_impact(year: int = 2026) -> dict:
     sc_reform = sim_reform.calculate(
         "sc_income_tax", period=year, map_to="household"
     )
-    # baseline - reform: under current law, the state collects a
-    # different amount of tax; sign depends on the net of the rate cut,
-    # SCIAD, and the EITC cap.
-    state_tax_revenue_impact = float((sc_baseline - sc_reform).sum())
+    state_tax_revenue_impact = float((sc_reform - sc_baseline).sum())
 
     # Federal income tax
     fed_baseline = sim_baseline.calculate(
@@ -102,7 +75,7 @@ def calculate_aggregate_impact(year: int = 2026) -> dict:
     fed_reform = sim_reform.calculate(
         "income_tax", period=year, map_to="household"
     )
-    federal_tax_revenue_impact = float((fed_baseline - fed_reform).sum())
+    federal_tax_revenue_impact = float((fed_reform - fed_baseline).sum())
 
     tax_revenue_impact = federal_tax_revenue_impact + state_tax_revenue_impact
     budgetary_impact = tax_revenue_impact  # no benefit spending
@@ -114,21 +87,25 @@ def calculate_aggregate_impact(year: int = 2026) -> dict:
     reform_net_income = sim_reform.calculate(
         "household_net_income", period=year, map_to="household"
     )
-    # Positive => household gains under current law vs pre-2026 policy.
-    income_change = baseline_net_income - reform_net_income
+    income_change = reform_net_income - baseline_net_income
+    change_arr = np.array(income_change)
+    baseline_net_income_arr = np.array(baseline_net_income)
+    household_weight = sim_reform.calculate("household_weight", period=year)
+    weight_arr = np.array(household_weight)
 
-    total_households = float((income_change * 0 + 1).sum())
+    total_households = float(weight_arr.sum())
 
     # ===== WINNERS / LOSERS =====
-    winners = float((income_change > 1).sum())
-    losers = float((income_change < -1).sum())
-    beneficiaries = float((income_change > 0).sum())
-
-    affected = abs(income_change) > 1
-    affected_count = float(affected.sum())
+    winners = float(weight_arr[change_arr > 1].sum())
+    losers = float(weight_arr[change_arr < -1].sum())
+    beneficiary_mask = change_arr > 0
+    beneficiaries = float(weight_arr[beneficiary_mask].sum())
     avg_benefit = (
-        float(income_change[affected].sum() / affected.sum())
-        if affected_count > 0
+        float(
+            (change_arr[beneficiary_mask] * weight_arr[beneficiary_mask]).sum()
+            / beneficiaries
+        )
+        if beneficiaries > 0
         else 0.0
     )
 
@@ -144,10 +121,13 @@ def calculate_aggregate_impact(year: int = 2026) -> dict:
     decile_relative = {}
     for d in range(1, 11):
         dmask = decile == d
-        d_count = float(dmask.sum())
+        d_weight = weight_arr[dmask]
+        d_count = float(d_weight.sum())
         if d_count > 0:
-            d_baseline_sum = float(baseline_net_income[dmask].sum())
-            d_change_sum = float(income_change[dmask].sum())
+            d_baseline_sum = float(
+                (baseline_net_income_arr[dmask] * d_weight).sum()
+            )
+            d_change_sum = float((change_arr[dmask] * d_weight).sum())
             decile_average[str(d)] = d_change_sum / d_count
             decile_relative[str(d)] = (
                 d_change_sum / d_baseline_sum
@@ -159,17 +139,13 @@ def calculate_aggregate_impact(year: int = 2026) -> dict:
             decile_relative[str(d)] = 0.0
 
     # Intra-decile requires person-weighted proportions — drop to numpy.
-    household_weight = sim_reform.calculate(
-        "household_weight", period=year
-    )
     people_per_hh = sim_baseline.calculate(
         "household_count_people", period=year, map_to="household"
     )
-    capped_baseline = np.maximum(np.array(reform_net_income), 1)
-    rel_change_arr = np.array(income_change) / capped_baseline
+    capped_baseline = np.maximum(baseline_net_income_arr, 1)
+    rel_change_arr = change_arr / capped_baseline
 
     decile_arr = np.array(decile)
-    weight_arr = np.array(household_weight)
     people_weighted = np.array(people_per_hh) * weight_arr
 
     intra_decile_deciles = {label: [] for label in _INTRA_LABELS}
@@ -261,8 +237,6 @@ def calculate_aggregate_impact(year: int = 2026) -> dict:
         "adjusted_gross_income", period=year, map_to="household"
     )
     agi_arr = np.array(agi)
-    change_arr = np.array(income_change)
-    affected_mask = np.abs(change_arr) > 1
 
     income_brackets = [
         (0, 25_000, "$0 - $25k"),
@@ -279,10 +253,10 @@ def calculate_aggregate_impact(year: int = 2026) -> dict:
         mask = (
             (agi_arr >= min_inc)
             & (agi_arr < max_inc)
-            & affected_mask
+            & beneficiary_mask
         )
-        bracket_affected = float(weight_arr[mask].sum())
-        if bracket_affected > 0:
+        bracket_beneficiaries = float(weight_arr[mask].sum())
+        if bracket_beneficiaries > 0:
             bracket_cost = float(
                 (change_arr[mask] * weight_arr[mask]).sum()
             )
@@ -294,7 +268,7 @@ def calculate_aggregate_impact(year: int = 2026) -> dict:
             bracket_avg = 0.0
         by_income_bracket.append({
             "bracket": label,
-            "beneficiaries": bracket_affected,
+            "beneficiaries": bracket_beneficiaries,
             "total_cost": bracket_cost,
             "avg_benefit": bracket_avg,
         })

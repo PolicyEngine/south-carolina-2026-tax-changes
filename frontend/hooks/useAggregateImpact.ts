@@ -23,7 +23,7 @@ export function useSCDistrictImpact(enabled: boolean, year: number = SC_DASHBOAR
   return useQuery<Record<string, string | number>[]>({
     queryKey: ["scDistrictImpact", year],
     queryFn: async () => {
-      const rows = await fetchCSV("congressional_districts.csv");
+      const rows = await fetchCSV("congressional_districts_revert.csv");
       return rows.filter(
         (r) => r.state === "SC" && Number(r.year) === year,
       );
@@ -36,10 +36,10 @@ export function useSCDistrictImpact(enabled: boolean, year: number = SC_DASHBOAR
 
 function buildAggregateResponse(year: number): Promise<AggregateImpactResponse> {
   return Promise.all([
-    fetchCSV("distributional_impact.csv"),
-    fetchCSV("metrics.csv"),
-    fetchCSV("winners_losers.csv"),
-    fetchCSV("income_brackets.csv"),
+    fetchCSV("distributional_impact_revert.csv"),
+    fetchCSV("metrics_revert.csv"),
+    fetchCSV("winners_losers_revert.csv"),
+    fetchCSV("income_brackets_revert.csv"),
   ]).then(([distributional, metrics, winnersLosers, incomeBrackets]) => {
     // Filter by year
     const dist = distributional.filter((r) => r.year === year);
@@ -151,7 +151,7 @@ export function useTenYearTotal(enabled: boolean) {
   return useQuery<number>({
     queryKey: ["tenYearTotal"],
     queryFn: async () => {
-      const rows = await fetchCSV("metrics.csv");
+      const rows = await fetchCSV("metrics_revert.csv");
       const years = Array.from({ length: 10 }, (_, i) => 2026 + i);
       return years.reduce((sum, year) => {
         const row = rows.find(
@@ -170,7 +170,7 @@ export function useTenYearFederalTotal(enabled: boolean) {
   return useQuery<number>({
     queryKey: ["tenYearFederalTotal"],
     queryFn: async () => {
-      const rows = await fetchCSV("metrics.csv");
+      const rows = await fetchCSV("metrics_revert.csv");
       const years = Array.from({ length: 10 }, (_, i) => 2026 + i);
       return years.reduce((sum, year) => {
         const row = rows.find(
@@ -189,7 +189,7 @@ export function useTenYearStateTotal(enabled: boolean) {
   return useQuery<number>({
     queryKey: ["tenYearStateTotal"],
     queryFn: async () => {
-      const rows = await fetchCSV("metrics.csv");
+      const rows = await fetchCSV("metrics_revert.csv");
       const years = Array.from({ length: 10 }, (_, i) => 2026 + i);
       return years.reduce((sum, year) => {
         const row = rows.find(

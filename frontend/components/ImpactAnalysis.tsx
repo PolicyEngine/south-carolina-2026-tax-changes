@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import {
   LineChart,
   Line,
@@ -14,6 +15,10 @@ import {
 import { useHouseholdImpact } from '@/hooks/useHouseholdImpact';
 import type { HouseholdImpactResponse, HouseholdRequest } from '@/lib/types';
 import ChartWatermark from './ChartWatermark';
+import {
+  PROVISION_COLORS,
+  PROVISION_LABELS,
+} from './ExampleHouseholds';
 
 interface Props {
   request: HouseholdRequest | null;
@@ -22,6 +27,19 @@ interface Props {
   /** When supplied, the chart renders this precomputed payload instead
    * of firing a live /us/calculate request. */
   precomputed?: HouseholdImpactResponse | null;
+}
+
+type ChartMode = 'total' | 'by_provision';
+
+interface ChartRow {
+  income: number;
+  benefit: number;
+  federalTaxChange: number;
+  stateTaxChange: number;
+  netIncomeChange: number;
+  rates: number | null;
+  sciad: number | null;
+  eitc: number | null;
 }
 
 export default function ImpactAnalysis({
@@ -34,6 +52,7 @@ export default function ImpactAnalysis({
   const data = precomputed ?? liveQuery.data;
   const isLoading = !precomputed && liveQuery.isLoading;
   const error = precomputed ? null : liveQuery.error;
+  const [chartMode, setChartMode] = useState<ChartMode>('total');
 
   if (!triggered) return null;
 
@@ -93,15 +112,40 @@ export default function ImpactAnalysis({
   const stateTaxChangeSeries = data.stateTaxChange;
   const netIncomeChangeSeries = data.netIncomeChange;
 
-  const chartData = data.income_range
+  const provChart = data.provisions_chart;
+  const hasProvisions = !!provChart;
+
+  const chartData: ChartRow[] = data.income_range
     .map((inc, i) => ({
       income: inc,
       benefit: netIncomeChangeSeries[i],
       federalTaxChange: federalTaxChangeSeries[i],
       stateTaxChange: stateTaxChangeSeries[i],
       netIncomeChange: netIncomeChangeSeries[i],
+      rates: provChart ? provChart.rates.net_income_change[i] : null,
+      sciad: provChart ? provChart.sciad.net_income_change[i] : null,
+      eitc: provChart ? provChart.eitc.net_income_change[i] : null,
     }))
     .filter((d) => d.income <= xMax);
+
+  // Provision dominance breakpoints — incomes where any provision's
+  // sign flips. Used to mark phaseout / cap kick-in zones in the chart.
+  const breakpoints: { income: number; label: string }[] = [];
+  if (hasProvisions && chartData.length > 1) {
+    (['rates', 'sciad', 'eitc'] as const).forEach((key) => {
+      for (let i = 1; i < chartData.length; i++) {
+        const prev = chartData[i - 1][key];
+        const cur = chartData[i][key];
+        if (prev === null || cur === null) continue;
+        if ((prev <= 0 && cur > 0) || (prev >= 0 && cur < 0)) {
+          breakpoints.push({
+            income: chartData[i].income,
+            label: `${PROVISION_LABELS[key]} ${cur > 0 ? 'starts gaining' : 'starts costing'}`,
+          });
+        }
+      }
+    });
+  }
 
   const metricCard = (label: string, value: number) => {
     const positive = value > 0;
@@ -128,19 +172,15 @@ export default function ImpactAnalysis({
     );
   };
 
-  // Custom tooltip that shows all three deltas at the hovered income point.
+  // Custom tooltip that shows all three deltas at the hovered income point,
+  // plus per-provision breakdown when available.
   const HoverTooltip = ({
     active,
     payload,
     label,
   }: {
     active?: boolean;
-    payload?: Array<{ payload: {
-      income: number;
-      federalTaxChange: number;
-      stateTaxChange: number;
-      netIncomeChange: number;
-    } }>;
+    payload?: Array<{ payload: ChartRow }>;
     label?: number;
   }) => {
     if (!active || !payload || !payload.length) return null;
@@ -155,6 +195,7 @@ export default function ImpactAnalysis({
           padding: '8px 12px',
           fontFamily: 'var(--font-sans)',
           fontSize: 12,
+          minWidth: 220,
         }}
       >
         <p style={{ margin: '0 0 4px', fontWeight: 600 }}>
@@ -166,9 +207,47 @@ export default function ImpactAnalysis({
         <p style={{ margin: 0 }}>
           South Carolina state tax change: {formatCurrencyWithSign(p.stateTaxChange)}
         </p>
-        <p style={{ margin: 0, fontWeight: 600 }}>
+        <p style={{ margin: '0 0 4px', fontWeight: 600 }}>
           Net income change: {formatCurrencyWithSign(p.netIncomeChange)}
         </p>
+        {hasProvisions && p.rates !== null && p.sciad !== null && p.eitc !== null && (
+          <div
+            style={{
+              marginTop: 6,
+              paddingTop: 6,
+              borderTop: '1px solid var(--border-light)',
+            }}
+          >
+            <p style={{ margin: '0 0 2px', fontSize: 11, color: 'var(--text-muted)' }}>
+              By provision
+            </p>
+            {(['rates', 'sciad', 'eitc'] as const).map((key) => (
+              <p
+                key={key}
+                style={{
+                  margin: '1px 0',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                }}
+              >
+                <span
+                  style={{
+                    display: 'inline-block',
+                    width: 8,
+                    height: 8,
+                    borderRadius: 2,
+                    background: PROVISION_COLORS[key],
+                  }}
+                />
+                <span style={{ flex: 1 }}>{PROVISION_LABELS[key]}:</span>
+                <span style={{ fontVariantNumeric: 'tabular-nums' }}>
+                  {formatCurrencyWithSign(p[key] as number)}
+                </span>
+              </p>
+            ))}
+          </div>
+        )}
       </div>
     );
   };
@@ -192,18 +271,73 @@ export default function ImpactAnalysis({
           {metricCard('South Carolina state tax change', stateTaxChangePoint)}
           {metricCard('Net income change', netIncomeChangePoint)}
         </div>
+
+        {hasProvisions && data.provisions && (
+          <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-3">
+            {(['rates', 'sciad', 'eitc'] as const).map((key) => {
+              const value = data.provisions![key].net_income_change;
+              const positive = value > 0;
+              const negative = value < 0;
+              return (
+                <div
+                  key={key}
+                  className="rounded-lg p-4 border bg-white border-gray-200"
+                  style={{ borderLeft: `4px solid ${PROVISION_COLORS[key]}` }}
+                >
+                  <p className="text-xs text-gray-500 mb-1">
+                    {PROVISION_LABELS[key]}
+                  </p>
+                  <p
+                    className="text-xl font-bold"
+                    style={{
+                      color: positive
+                        ? 'var(--chart-positive)'
+                        : negative
+                          ? 'var(--chart-negative)'
+                          : 'var(--text-secondary)',
+                    }}
+                  >
+                    {value !== 0 ? `${formatCurrencyWithSign(value)}/year` : '$0/year'}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       <hr className="border-gray-200" />
 
       {/* Chart */}
       <div className="bg-white border rounded-lg p-6">
-        <h3 className="text-lg font-semibold mb-1 text-gray-800">
-          Change in net income from South Carolina 2026 tax changes
-        </h3>
-        <p className="text-sm text-gray-500 mb-4">
-          Current law (2026) vs. pre-2026 law, by employment income
-        </p>
+        <div className="flex items-start justify-between gap-4 mb-1">
+          <div>
+            <h3 className="text-lg font-semibold text-gray-800">
+              Change in net income from South Carolina 2026 tax changes
+            </h3>
+            <p className="text-sm text-gray-500">
+              Current law (2026) vs. pre-2026 law, by employment income
+            </p>
+          </div>
+          {hasProvisions && (
+            <div className="flex gap-1 shrink-0">
+              {(['total', 'by_provision'] as const).map((mode) => (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => setChartMode(mode)}
+                  className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                    chartMode === mode
+                      ? 'bg-primary-500 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  {mode === 'total' ? 'Total' : 'By provision'}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
         <ResponsiveContainer width="100%" height={400}>
             <LineChart data={chartData} margin={{ left: 20, right: 20, top: 5, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
@@ -219,17 +353,82 @@ export default function ImpactAnalysis({
               <Tooltip content={<HoverTooltip />} />
               <Legend />
               <ReferenceLine y={0} stroke="var(--chart-reference)" strokeWidth={2} />
-              <Line
-                type="monotone"
-                dataKey="benefit"
-                stroke="var(--chart-positive)"
-                strokeWidth={3}
-                name="Net income change"
-                dot={false}
-              />
+              {hasProvisions &&
+                breakpoints
+                  .filter((b) => b.income > 0 && b.income <= xMax)
+                  .map((b, idx) => (
+                    <ReferenceLine
+                      key={`bp-${idx}`}
+                      x={b.income}
+                      stroke="var(--chart-reference)"
+                      strokeDasharray="4 4"
+                      strokeOpacity={0.4}
+                      label={{
+                        value: b.label,
+                        position: 'insideTopLeft',
+                        fontSize: 10,
+                        fill: 'var(--text-muted)',
+                      }}
+                    />
+                  ))}
+              {chartMode === 'total' && (
+                <Line
+                  type="monotone"
+                  dataKey="benefit"
+                  stroke="var(--chart-positive)"
+                  strokeWidth={3}
+                  name="Net income change"
+                  dot={false}
+                />
+              )}
+              {chartMode === 'by_provision' && hasProvisions && (
+                <>
+                  <Line
+                    type="monotone"
+                    dataKey="rates"
+                    stroke={PROVISION_COLORS.rates}
+                    strokeWidth={2}
+                    name={PROVISION_LABELS.rates}
+                    dot={false}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="sciad"
+                    stroke={PROVISION_COLORS.sciad}
+                    strokeWidth={2}
+                    name={PROVISION_LABELS.sciad}
+                    dot={false}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="eitc"
+                    stroke={PROVISION_COLORS.eitc}
+                    strokeWidth={2}
+                    name={PROVISION_LABELS.eitc}
+                    dot={false}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="benefit"
+                    stroke="var(--chart-reference)"
+                    strokeWidth={2}
+                    strokeDasharray="6 4"
+                    name="Net total"
+                    dot={false}
+                  />
+                </>
+              )}
             </LineChart>
           </ResponsiveContainer>
         <ChartWatermark />
+        {hasProvisions && (
+          <p className="text-[11px] text-gray-500 italic mt-2">
+            Provision lines isolate each of Act 110&apos;s three changes by reverting
+            only that provision while leaving the others at current law. Their sum
+            differs from the net total by an interaction residual driven by tax-math
+            non-additivity (especially around the SCIAD phaseout and EITC cap).
+          </p>
+        )}
       </div>
     </div>
   );

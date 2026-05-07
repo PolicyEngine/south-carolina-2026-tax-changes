@@ -1,7 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import type { HouseholdImpactResponse } from '@/lib/types';
+import type {
+  HouseholdImpactResponse,
+  ProvisionsAtIncome,
+  ProvisionsChart,
+} from '@/lib/types';
 
 export interface ExampleHouseholdProfile {
   label: string;
@@ -35,6 +39,8 @@ interface ExampleHousehold extends ExampleHouseholdProfile {
   net_income_change: number;
   sc_tax_change: number;
   chart: ChartArrays;
+  provisions?: ProvisionsAtIncome;
+  provisions_chart?: ProvisionsChart;
 }
 
 interface Payload {
@@ -51,6 +57,20 @@ const fmtSigned = (v: number) => {
   if (v < 0) return `-${base}`;
   return base;
 };
+
+/** PE-palette colors for the three SC provisions. Used both on the
+ *  card breakdown rows and on the "By provision" chart lines. */
+export const PROVISION_COLORS = {
+  rates: 'var(--primary-500)',     // SC primary teal
+  sciad: 'var(--primary-800)',     // dark teal
+  eitc: 'var(--gray-600)',         // neutral gray (often negative)
+} as const;
+
+export const PROVISION_LABELS = {
+  rates: 'Rate brackets',
+  sciad: 'SCIAD deduction',
+  eitc: 'EITC cap',
+} as const;
 
 /** Build a HouseholdImpactResponse-shaped payload from one of the
  *  precomputed example records, so the existing ImpactAnalysis chart
@@ -73,6 +93,8 @@ function toImpactResponse(h: ExampleHousehold): HouseholdImpactResponse {
       net_income_change: h.net_income_change,
     },
     x_axis_max: xMax,
+    provisions: h.provisions,
+    provisions_chart: h.provisions_chart,
   };
 }
 
@@ -119,8 +141,8 @@ export default function ExampleHouseholds({
       </h3>
       <p className="text-sm text-gray-600 mb-3">
         Click an example to load its profile into the calculator and render its
-        net-income chart instantly. Charts come from precomputed values; no
-        live API call.
+        net-income chart instantly. The breakdown attributes the impact to each
+        of Act 110&apos;s three provisions.
       </p>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
         {data.households.map((h, i) => {
@@ -149,24 +171,30 @@ export default function ExampleHouseholds({
                 isSelected
                   ? 'ring-2 ring-primary-500 ring-offset-1 bg-white border-primary-500'
                   : isGain
-                    ? 'bg-green-50 border-success hover:border-green-500'
+                    ? 'bg-primary-50 border-primary-300 hover:border-primary-500'
                     : h.net_income_change < 0
-                      ? 'bg-red-50 border-red-300 hover:border-red-400'
+                      ? 'bg-gray-50 border-gray-300 hover:border-gray-500'
                       : 'bg-gray-50 border-gray-300 hover:border-gray-400'
               }`}
             >
               <p className="text-sm font-semibold text-gray-800">{h.label}</p>
               <p
-                className={`text-2xl font-bold mt-1 ${
-                  isGain
-                    ? 'text-green-600'
+                className="text-2xl font-bold mt-1"
+                style={{
+                  color: isGain
+                    ? 'var(--chart-positive)'
                     : h.net_income_change < 0
-                      ? 'text-red-600'
-                      : 'text-gray-600'
-                }`}
+                      ? 'var(--chart-negative)'
+                      : 'var(--text-secondary)',
+                }}
               >
                 {fmtSigned(h.net_income_change)}/year
               </p>
+
+              {h.provisions && (
+                <ProvisionBreakdown provisions={h.provisions} />
+              )}
+
               <p className="text-xs text-gray-500 mt-2 leading-5">
                 SC tax: {fmtCurrency(h.reform.sc_income_tax)} →{' '}
                 {fmtCurrency(h.baseline.sc_income_tax)}
@@ -181,6 +209,55 @@ export default function ExampleHouseholds({
         with the spouse aged 35. The itemizer profile carries $12k property
         tax, $20k mortgage interest, and $5k charitable to trigger SCAID.
       </p>
+    </div>
+  );
+}
+
+function ProvisionBreakdown({ provisions }: { provisions: ProvisionsAtIncome }) {
+  const rows: { key: keyof typeof PROVISION_LABELS; value: number }[] = [
+    { key: 'rates', value: provisions.rates.net_income_change },
+    { key: 'sciad', value: provisions.sciad.net_income_change },
+    { key: 'eitc', value: provisions.eitc.net_income_change },
+  ];
+  const residual = provisions.interaction_residual?.net_income_change ?? 0;
+  const showResidual = Math.abs(residual) >= 1;
+
+  return (
+    <div className="mt-3 pt-2 border-t border-gray-200 space-y-1">
+      {rows.map(({ key, value }) => (
+        <div
+          key={key}
+          className="flex items-center justify-between text-xs"
+        >
+          <span className="flex items-center gap-1.5">
+            <span
+              aria-hidden
+              className="inline-block w-2 h-2 rounded-sm"
+              style={{ background: PROVISION_COLORS[key] }}
+            />
+            <span className="text-gray-700">{PROVISION_LABELS[key]}</span>
+          </span>
+          <span
+            className="font-medium tabular-nums"
+            style={{
+              color:
+                value > 0
+                  ? 'var(--chart-positive)'
+                  : value < 0
+                    ? 'var(--chart-negative)'
+                    : 'var(--text-muted)',
+            }}
+          >
+            {fmtSigned(value)}
+          </span>
+        </div>
+      ))}
+      {showResidual && (
+        <div className="flex items-center justify-between text-[10px] text-gray-500 pt-0.5 italic">
+          <span>Interaction</span>
+          <span className="tabular-nums">{fmtSigned(residual)}</span>
+        </div>
+      )}
     </div>
   );
 }

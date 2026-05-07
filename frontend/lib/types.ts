@@ -17,6 +17,34 @@ export interface BenefitAtIncome {
   net_income_change: number;
 }
 
+export type ProvisionKey = 'rates' | 'sciad' | 'eitc';
+
+export interface ProvisionPointImpact {
+  net_income_change: number;
+  state_tax_change?: number;
+  federal_tax_change?: number;
+}
+
+export interface ProvisionChartImpact {
+  net_income_change: number[];
+  state_tax_change?: number[];
+  federal_tax_change?: number[];
+}
+
+export interface ProvisionsAtIncome {
+  rates: ProvisionPointImpact;
+  sciad: ProvisionPointImpact;
+  eitc: ProvisionPointImpact;
+  interaction_residual?: ProvisionPointImpact;
+}
+
+export interface ProvisionsChart {
+  rates: ProvisionChartImpact;
+  sciad: ProvisionChartImpact;
+  eitc: ProvisionChartImpact;
+  interaction_residual?: ProvisionChartImpact;
+}
+
 export interface HouseholdImpactResponse {
   income_range: number[];
   net_income_change: number[];
@@ -25,6 +53,9 @@ export interface HouseholdImpactResponse {
   netIncomeChange: number[];
   benefit_at_income: BenefitAtIncome;
   x_axis_max: number;
+  /** Per-provision attribution (only present for precomputed examples). */
+  provisions?: ProvisionsAtIncome;
+  provisions_chart?: ProvisionsChart;
 }
 
 export interface IncomeBracket {

@@ -1,27 +1,16 @@
-"""Pre-compute a handful of representative South Carolina households so
-the household tab can show example impacts without hitting the PE API
-on page load.
+"""Pre-compute representative SC households so the household tab can show
+example impacts without hitting the PE API on page load.
 
-Hits https://api.policyengine.org/us/calculate twice per profile —
-once with no override (gives current 2026 SC law), once with the SC
-2026 revert reform applied (gives pre-2026 law) — and writes the diff
-into ``frontend/public/data/example_households.json``.
+For each profile, runs the current-law sim plus four inverse-reform sims
+(full revert + each provision in isolation: rate brackets, SCIAD, and
+the EITC $200 cap) so the dashboard can attribute the household impact
+to each provision individually. Sweep arrays are computed for each
+variant so the chart can render per-provision lines instantly.
 
-Sign convention matches the dashboard:
-
-    impact = current law (baseline) - pre-2026 (reform)
-
-so positive numbers mean the household gains under the 2026 changes.
-
-The example profiles are picked to surface different provisions:
-
-  - Single parent, $35k, 2 kids ages 4 and 7: EITC range, sees the
-    rate-table and EITC-cap effects.
-  - Married couple, $80k, 1 kid: middle of the rate-bracket changes,
-    no itemization.
-  - Married couple, $200k, 2 kids, itemizer ($12k property tax /
-    $20k mortgage interest / $5k charitable): high earner whose
-    itemization triggers SCAID interaction.
+Sign convention: impact = current law (no reform) - pre-2026 (revert
+applied), so positive numbers mean the household gains under the 2026
+changes. ``interaction_residual`` captures the non-additivity from
+tax-math interactions; it equals ``total - (rates + sciad + eitc)``.
 
 Usage:
     uv run --with requests scripts/compute_example_households.py
@@ -65,18 +54,53 @@ PROFILES = [
 ]
 
 
-def reform_policy() -> dict:
-    """Revert SC's 2026 tax parameters to 2025 values."""
-    period = "2026-01-01.2100-12-31"
+# Period covering 2026 forward; reused by every revert override.
+_PERIOD = "2026-01-01.2100-12-31"
+
+
+def _rates_overrides() -> dict:
+    """Revert just the SC rate-bracket schedule to 2025 values."""
     return {
-        "gov.states.sc.tax.income.rates[0].rate": {period: 0},
-        "gov.states.sc.tax.income.rates[1].threshold": {period: 3_560},
-        "gov.states.sc.tax.income.rates[1].rate": {period: 0.03},
-        "gov.states.sc.tax.income.rates[2].threshold": {period: 17_830},
-        "gov.states.sc.tax.income.rates[2].rate": {period: 0.06},
-        "gov.states.sc.tax.income.deductions.sciad.in_effect": {period: False},
-        "gov.states.sc.tax.income.credits.eitc.max": {period: 999_999_999},
+        "gov.states.sc.tax.income.rates[0].rate": {_PERIOD: 0},
+        "gov.states.sc.tax.income.rates[1].threshold": {_PERIOD: 3_560},
+        "gov.states.sc.tax.income.rates[1].rate": {_PERIOD: 0.03},
+        "gov.states.sc.tax.income.rates[2].threshold": {_PERIOD: 17_830},
+        "gov.states.sc.tax.income.rates[2].rate": {_PERIOD: 0.06},
     }
+
+
+def _sciad_overrides() -> dict:
+    """Disable the SCIAD deduction (revert to federal-style deduction)."""
+    return {
+        "gov.states.sc.tax.income.deductions.sciad.in_effect": {_PERIOD: False},
+    }
+
+
+def _eitc_overrides() -> dict:
+    """Remove the $200 SC EITC cap (effectively uncapped)."""
+    return {
+        "gov.states.sc.tax.income.credits.eitc.max": {_PERIOD: 999_999_999},
+    }
+
+
+def reform_policy() -> dict:
+    """Full revert: all three provisions reverted simultaneously.
+
+    Equivalent to ``reform_revert.json`` at the repo root.
+    """
+    return {
+        **_rates_overrides(),
+        **_sciad_overrides(),
+        **_eitc_overrides(),
+    }
+
+
+# Provision-only revert variants; each isolates one provision.
+PROVISION_OVERRIDES: dict[str, dict] = {
+    "rates": _rates_overrides(),
+    "sciad": _sciad_overrides(),
+    "eitc": _eitc_overrides(),
+}
 
 
 def build_household(profile: dict, with_axes: bool = False) -> dict:
@@ -183,49 +207,125 @@ def extract(result: dict) -> dict:
     }
 
 
-def compute_profile(profile: dict) -> dict:
-    """Run baseline (current 2026 law) + reform (revert to 2025) at the
-    user's income point and as an income sweep, so the page can render
-    the full net-income chart instantly."""
+def _sweep_arrays(result: dict) -> dict:
+    """Pull the three sweep arrays we need from a /us/calculate response."""
     yr = str(YEAR)
+    return {
+        "income_range": result["people"]["you"]["employment_income"][yr],
+        "net_income": result["households"]["your household"]["household_net_income"][yr],
+        "state_tax": result["tax_units"]["your tax unit"]["sc_income_tax"][yr],
+        "income_tax": result["tax_units"]["your tax unit"]["income_tax"][yr],
+    }
 
-    # Point estimate.
+
+def _diff(base: list[float], revert: list[float]) -> list[float]:
+    """Element-wise current_law - revert: positive means household gains."""
+    return [b - r for b, r in zip(base, revert)]
+
+
+def compute_profile(profile: dict) -> dict:
+    """Run baseline (current law) plus full and per-provision reverts at
+    the user's income point and as an income sweep so the page can render
+    the full net-income chart instantly with per-provision lines."""
     point_situation = build_household(profile, with_axes=False)
-    baseline_pt = extract(calc(point_situation, None))
-    reform_pt = extract(calc(point_situation, reform_policy()))
-
-    # Income sweep for the chart.
     sweep_situation = build_household(profile, with_axes=True)
-    base_sweep = calc(sweep_situation, None)
-    ref_sweep = calc(sweep_situation, reform_policy())
 
-    income_range = base_sweep["people"]["you"]["employment_income"][yr]
-    base_net = base_sweep["households"]["your household"]["household_net_income"][yr]
-    ref_net = ref_sweep["households"]["your household"]["household_net_income"][yr]
-    base_state = base_sweep["tax_units"]["your tax unit"]["sc_income_tax"][yr]
-    ref_state = ref_sweep["tax_units"]["your tax unit"]["sc_income_tax"][yr]
-    base_fed = base_sweep["tax_units"]["your tax unit"]["income_tax"][yr]
-    ref_fed = ref_sweep["tax_units"]["your tax unit"]["income_tax"][yr]
+    base_pt = extract(calc(point_situation, None))
+    base_sweep = _sweep_arrays(calc(sweep_situation, None))
 
-    # Impact = current law (baseline) - pre-2026 (reform), so positive
-    # means the household gains under the 2026 changes.
-    net_income_change = [b - r for b, r in zip(base_net, ref_net)]
-    state_tax_change = [b - r for b, r in zip(base_state, ref_state)]
-    federal_tax_change = [b - r for b, r in zip(base_fed, ref_fed)]
+    def run_revert(overrides: dict) -> tuple[dict, dict]:
+        return (
+            extract(calc(point_situation, overrides)),
+            _sweep_arrays(calc(sweep_situation, overrides)),
+        )
+
+    full_pt, full_sweep = run_revert(reform_policy())
+
+    provision_pts: dict[str, dict] = {}
+    provision_sweeps: dict[str, dict] = {}
+    for key, overrides in PROVISION_OVERRIDES.items():
+        provision_pts[key], provision_sweeps[key] = run_revert(overrides)
+
+    # Total impact (full revert).
+    income_change_total = (
+        base_pt["household_net_income"] - full_pt["household_net_income"]
+    )
+    sc_change_total = base_pt["sc_income_tax"] - full_pt["sc_income_tax"]
+    fed_change_total = base_pt["income_tax"] - full_pt["income_tax"]
+
+    # Per-provision point impacts at the user's income.
+    provisions_pt: dict[str, dict] = {}
+    for key, pt in provision_pts.items():
+        provisions_pt[key] = {
+            "net_income_change": (
+                base_pt["household_net_income"] - pt["household_net_income"]
+            ),
+            "state_tax_change": (
+                base_pt["sc_income_tax"] - pt["sc_income_tax"]
+            ),
+            "federal_tax_change": (
+                base_pt["income_tax"] - pt["income_tax"]
+            ),
+        }
+
+    # Per-provision sweep arrays.
+    provisions_chart: dict[str, dict] = {}
+    for key, sw in provision_sweeps.items():
+        provisions_chart[key] = {
+            "net_income_change": _diff(base_sweep["net_income"], sw["net_income"]),
+            "state_tax_change": _diff(base_sweep["state_tax"], sw["state_tax"]),
+            "federal_tax_change": _diff(base_sweep["income_tax"], sw["income_tax"]),
+        }
+
+    # Interaction residual: total minus the sum of provision-only impacts.
+    sum_components_pt = sum(
+        provisions_pt[k]["net_income_change"] for k in provisions_pt
+    )
+    interaction_residual_pt = income_change_total - sum_components_pt
+
+    sum_components_chart = [
+        sum(provisions_chart[k]["net_income_change"][i] for k in provisions_chart)
+        for i in range(len(base_sweep["income_range"]))
+    ]
+    interaction_residual_chart = [
+        total_pt - comp
+        for total_pt, comp in zip(
+            _diff(base_sweep["net_income"], full_sweep["net_income"]),
+            sum_components_chart,
+        )
+    ]
+
+    # Top-level chart arrays (kept for backward compatibility).
+    chart = {
+        "income_range": base_sweep["income_range"],
+        "net_income_change": _diff(base_sweep["net_income"], full_sweep["net_income"]),
+        "state_tax_change": _diff(base_sweep["state_tax"], full_sweep["state_tax"]),
+        "federal_tax_change": _diff(
+            base_sweep["income_tax"], full_sweep["income_tax"]
+        ),
+    }
 
     return {
         **profile,
-        "baseline": baseline_pt,
-        "reform": reform_pt,
-        "net_income_change": baseline_pt["household_net_income"]
-        - reform_pt["household_net_income"],
-        "sc_tax_change": baseline_pt["sc_income_tax"]
-        - reform_pt["sc_income_tax"],
-        "chart": {
-            "income_range": income_range,
-            "net_income_change": net_income_change,
-            "state_tax_change": state_tax_change,
-            "federal_tax_change": federal_tax_change,
+        "baseline": base_pt,
+        "reform": full_pt,
+        "net_income_change": income_change_total,
+        "sc_tax_change": sc_change_total,
+        "federal_tax_change": fed_change_total,
+        "chart": chart,
+        "provisions": {
+            **provisions_pt,
+            "interaction_residual": {
+                "net_income_change": interaction_residual_pt,
+                # Residual on the tax components is rarely meaningful;
+                # keep state/federal at the chart level only.
+            },
+        },
+        "provisions_chart": {
+            **provisions_chart,
+            "interaction_residual": {
+                "net_income_change": interaction_residual_chart,
+            },
         },
     }
 

@@ -1,6 +1,5 @@
 'use client';
 
-import { useState } from 'react';
 import {
   LineChart,
   Line,
@@ -29,8 +28,6 @@ interface Props {
   precomputed?: HouseholdImpactResponse | null;
 }
 
-type ChartMode = 'total' | 'by_provision';
-
 interface ChartRow {
   income: number;
   benefit: number;
@@ -40,6 +37,7 @@ interface ChartRow {
   rates: number | null;
   sciad: number | null;
   eitc: number | null;
+  interaction: number | null;
 }
 
 export default function ImpactAnalysis({
@@ -52,7 +50,6 @@ export default function ImpactAnalysis({
   const data = precomputed ?? liveQuery.data;
   const isLoading = !precomputed && liveQuery.isLoading;
   const error = precomputed ? null : liveQuery.error;
-  const [chartMode, setChartMode] = useState<ChartMode>('total');
 
   if (!triggered) return null;
 
@@ -116,36 +113,28 @@ export default function ImpactAnalysis({
   const hasProvisions = !!provChart;
 
   const chartData: ChartRow[] = data.income_range
-    .map((inc, i) => ({
-      income: inc,
-      benefit: netIncomeChangeSeries[i],
-      federalTaxChange: federalTaxChangeSeries[i],
-      stateTaxChange: stateTaxChangeSeries[i],
-      netIncomeChange: netIncomeChangeSeries[i],
-      rates: provChart ? provChart.rates.net_income_change[i] : null,
-      sciad: provChart ? provChart.sciad.net_income_change[i] : null,
-      eitc: provChart ? provChart.eitc.net_income_change[i] : null,
-    }))
+    .map((inc, i) => {
+      const rates = provChart ? provChart.rates.net_income_change[i] : null;
+      const sciad = provChart ? provChart.sciad.net_income_change[i] : null;
+      const eitc = provChart ? provChart.eitc.net_income_change[i] : null;
+      // Interaction = total net change - sum of per-provision contributions.
+      const interaction =
+        rates !== null && sciad !== null && eitc !== null
+          ? netIncomeChangeSeries[i] - (rates + sciad + eitc)
+          : null;
+      return {
+        income: inc,
+        benefit: netIncomeChangeSeries[i],
+        federalTaxChange: federalTaxChangeSeries[i],
+        stateTaxChange: stateTaxChangeSeries[i],
+        netIncomeChange: netIncomeChangeSeries[i],
+        rates,
+        sciad,
+        eitc,
+        interaction,
+      };
+    })
     .filter((d) => d.income <= xMax);
-
-  // Provision dominance breakpoints — incomes where any provision's
-  // sign flips. Used to mark phaseout / cap kick-in zones in the chart.
-  const breakpoints: { income: number; label: string }[] = [];
-  if (hasProvisions && chartData.length > 1) {
-    (['rates', 'sciad', 'eitc'] as const).forEach((key) => {
-      for (let i = 1; i < chartData.length; i++) {
-        const prev = chartData[i - 1][key];
-        const cur = chartData[i][key];
-        if (prev === null || cur === null) continue;
-        if ((prev <= 0 && cur > 0) || (prev >= 0 && cur < 0)) {
-          breakpoints.push({
-            income: chartData[i].income,
-            label: `${PROVISION_LABELS[key]} ${cur > 0 ? 'starts gaining' : 'starts costing'}`,
-          });
-        }
-      }
-    });
-  }
 
   const metricCard = (label: string, value: number) => {
     const positive = value > 0;
@@ -246,6 +235,25 @@ export default function ImpactAnalysis({
                 </span>
               </p>
             ))}
+            {p.interaction !== null && Math.abs(p.interaction) >= 1 && (
+              <p
+                style={{
+                  margin: '2px 0 0',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  fontSize: 11,
+                  fontStyle: 'italic',
+                  color: 'var(--text-muted)',
+                }}
+              >
+                <span style={{ display: 'inline-block', width: 8 }} />
+                <span style={{ flex: 1 }}>Interaction:</span>
+                <span style={{ fontVariantNumeric: 'tabular-nums' }}>
+                  {formatCurrencyWithSign(p.interaction)}
+                </span>
+              </p>
+            )}
           </div>
         )}
       </div>
@@ -310,34 +318,12 @@ export default function ImpactAnalysis({
 
       {/* Chart */}
       <div className="bg-white border rounded-lg p-6">
-        <div className="flex items-start justify-between gap-4 mb-1">
-          <div>
-            <h3 className="text-lg font-semibold text-gray-800">
-              Change in net income from South Carolina 2026 tax changes
-            </h3>
-            <p className="text-sm text-gray-500">
-              Current law (2026) vs. pre-2026 law, by employment income
-            </p>
-          </div>
-          {hasProvisions && (
-            <div className="flex gap-1 shrink-0">
-              {(['total', 'by_provision'] as const).map((mode) => (
-                <button
-                  key={mode}
-                  type="button"
-                  onClick={() => setChartMode(mode)}
-                  className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                    chartMode === mode
-                      ? 'bg-primary-500 text-white'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
-                >
-                  {mode === 'total' ? 'Total' : 'By provision'}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
+        <h3 className="text-lg font-semibold mb-1 text-gray-800">
+          Change in net income from South Carolina 2026 tax changes
+        </h3>
+        <p className="text-sm text-gray-500 mb-4">
+          Current law (2026) vs. pre-2026 law, by employment income
+        </p>
         <ResponsiveContainer width="100%" height={400}>
             <LineChart data={chartData} margin={{ left: 20, right: 20, top: 5, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
@@ -353,80 +339,26 @@ export default function ImpactAnalysis({
               <Tooltip content={<HoverTooltip />} />
               <Legend />
               <ReferenceLine y={0} stroke="var(--chart-reference)" strokeWidth={2} />
-              {hasProvisions &&
-                breakpoints
-                  .filter((b) => b.income > 0 && b.income <= xMax)
-                  .map((b, idx) => (
-                    <ReferenceLine
-                      key={`bp-${idx}`}
-                      x={b.income}
-                      stroke="var(--chart-reference)"
-                      strokeDasharray="4 4"
-                      strokeOpacity={0.4}
-                      label={{
-                        value: b.label,
-                        position: 'insideTopLeft',
-                        fontSize: 10,
-                        fill: 'var(--text-muted)',
-                      }}
-                    />
-                  ))}
-              {chartMode === 'total' && (
-                <Line
-                  type="monotone"
-                  dataKey="benefit"
-                  stroke="var(--chart-positive)"
-                  strokeWidth={3}
-                  name="Net income change"
-                  dot={false}
-                />
-              )}
-              {chartMode === 'by_provision' && hasProvisions && (
-                <>
-                  <Line
-                    type="monotone"
-                    dataKey="rates"
-                    stroke={PROVISION_COLORS.rates}
-                    strokeWidth={2}
-                    name={PROVISION_LABELS.rates}
-                    dot={false}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="sciad"
-                    stroke={PROVISION_COLORS.sciad}
-                    strokeWidth={2}
-                    name={PROVISION_LABELS.sciad}
-                    dot={false}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="eitc"
-                    stroke={PROVISION_COLORS.eitc}
-                    strokeWidth={2}
-                    name={PROVISION_LABELS.eitc}
-                    dot={false}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="benefit"
-                    stroke="var(--chart-reference)"
-                    strokeWidth={2}
-                    strokeDasharray="6 4"
-                    name="Net total"
-                    dot={false}
-                  />
-                </>
-              )}
+              <Line
+                type="monotone"
+                dataKey="benefit"
+                stroke="var(--chart-positive)"
+                strokeWidth={3}
+                name="Net income change"
+                dot={false}
+              />
             </LineChart>
           </ResponsiveContainer>
         <ChartWatermark />
         {hasProvisions && (
           <p className="text-[11px] text-gray-500 italic mt-2">
-            Provision lines isolate each of Act 110&apos;s three changes by reverting
-            only that provision while leaving the others at current law. Their sum
-            differs from the net total by an interaction residual driven by tax-math
-            non-additivity (especially around the SCIAD phaseout and EITC cap).
+            Hover the chart to see each provision&apos;s contribution. The
+            interaction line in the tooltip is the residual the three
+            provisions don&apos;t directly explain — it captures tax-math
+            non-additivity (e.g.&nbsp;a higher rate applied to a smaller
+            SCIAD-deducted base, or how the EITC cap interacts with federal
+            EITC). The provisions plus the interaction always sum to the net
+            total.
           </p>
         )}
       </div>

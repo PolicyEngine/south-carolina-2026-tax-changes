@@ -134,9 +134,21 @@ export default function ImpactAnalysis({
     })
     .filter((d) => d.income <= xMax);
 
-  const metricCard = (label: string, value: number) => {
-    const positive = value > 0;
-    const negative = value < 0;
+  /** Render a summary metric card.
+   *
+   *  Set ``inverseSign`` to true for tax-change cards, where a positive
+   *  value (an increase in tax) is a cost to the household rather than
+   *  a benefit. The flag inverts the green/red color logic so an
+   *  increase in tax reads as a cost and a decrease reads as savings,
+   *  while the displayed dollar amount remains the raw delta. */
+  const metricCard = (
+    label: string,
+    value: number,
+    inverseSign: boolean = false,
+  ) => {
+    const householdSign = inverseSign ? -value : value;
+    const positive = householdSign > 0;
+    const negative = householdSign < 0;
     return (
       <div
         className={`rounded-lg p-6 border ${
@@ -188,13 +200,30 @@ export default function ImpactAnalysis({
         <p style={{ margin: '0 0 4px', fontWeight: 600 }}>
           Income: {formatCurrency(Math.round(incomeLabel / 100) * 100)}
         </p>
-        <p style={{ margin: 0 }}>
+        <p
+          style={{
+            margin: '4px 0 2px',
+            fontSize: 11,
+            color: 'var(--text-muted)',
+            textTransform: 'uppercase',
+            letterSpacing: '0.05em',
+          }}
+        >
+          By tax channel
+        </p>
+        <p
+          style={{ margin: 0 }}
+          title="Change in South Carolina individual income tax liability under H.4216 compared with pre-2026 law. A positive value indicates an increase in tax."
+        >
+          SC tax change: {formatCurrencyWithSign(p.stateTaxChange)}
+        </p>
+        <p
+          style={{ margin: 0 }}
+          title="Change in federal individual income tax under H.4216 compared with pre-2026 law. South Carolina income tax counts toward the federal itemized deduction for state and local taxes (subject to the $40,000 SALT cap), so a change in South Carolina tax can shift federal taxable income and therefore federal tax. A positive value indicates an increase in tax."
+        >
           Federal tax change: {formatCurrencyWithSign(p.federalTaxChange)}
         </p>
-        <p style={{ margin: 0 }}>
-          South Carolina state tax change: {formatCurrencyWithSign(p.stateTaxChange)}
-        </p>
-        <p style={{ margin: '0 0 4px', fontWeight: 600 }}>
+        <p style={{ margin: '4px 0 0', fontWeight: 600 }}>
           Net income change: {formatCurrencyWithSign(p.netIncomeChange)}
         </p>
         {hasProvisions && p.rates !== null && p.sciad !== null && p.eitc !== null && (
@@ -235,7 +264,7 @@ export default function ImpactAnalysis({
             ))}
             {p.interaction !== null && Math.abs(p.interaction) >= 1 && (
               <p
-                title="Non-additivity among SC's three provisions: SCIAD reduces taxable income before rates apply, so changing both compounds beyond rates-only + SCIAD-only. Not federal flow-through."
+                title="Reflects interactions among the three South Carolina provisions only. SCIAD reduces taxable income before rates apply, so reverting multiple provisions together produces a combined effect that differs from the sum of the individual provision effects."
                 style={{
                   margin: '2px 0 0',
                   display: 'flex',
@@ -274,8 +303,15 @@ export default function ImpactAnalysis({
         </p>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {metricCard('Federal tax change', federalTaxChangePoint)}
-          {metricCard('South Carolina state tax change', stateTaxChangePoint)}
+          {/* Tax-change cards show the raw delta (a positive value
+              indicates an increase in tax) with inverted color logic
+              so an increase reads as a cost rather than a benefit. */}
+          {metricCard('Federal tax change', federalTaxChangePoint, true)}
+          {metricCard(
+            'South Carolina state tax change',
+            stateTaxChangePoint,
+            true,
+          )}
           {metricCard('Net income change', netIncomeChangePoint)}
         </div>
 

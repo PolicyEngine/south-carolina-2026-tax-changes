@@ -38,6 +38,7 @@ interface ExampleHousehold extends ExampleHouseholdProfile {
   };
   net_income_change: number;
   sc_tax_change: number;
+  federal_tax_change?: number;
   chart: ChartArrays;
   provisions?: ProvisionsAtIncome;
   provisions_chart?: ProvisionsChart;
@@ -195,6 +196,11 @@ export default function ExampleHouseholds({
                 <ProvisionBreakdown provisions={h.provisions} />
               )}
 
+              <TaxChannelBreakdown
+                scTaxChange={h.sc_tax_change}
+                federalTaxChange={h.federal_tax_change ?? 0}
+              />
+
               <p className="text-xs text-gray-500 mt-2 leading-5">
                 SC tax: {fmtCurrency(h.reform.sc_income_tax)} →{' '}
                 {fmtCurrency(h.baseline.sc_income_tax)}
@@ -224,6 +230,9 @@ function ProvisionBreakdown({ provisions }: { provisions: ProvisionsAtIncome }) 
 
   return (
     <div className="mt-3 pt-2 border-t border-gray-200 space-y-1">
+      <p className="text-[10px] uppercase tracking-wider text-gray-500 font-medium mb-1">
+        By SC provision
+      </p>
       {rows.map(({ key, value }) => (
         <div
           key={key}
@@ -255,12 +264,80 @@ function ProvisionBreakdown({ provisions }: { provisions: ProvisionsAtIncome }) 
       {showResidual && (
         <div
           className="flex items-center justify-between text-[10px] text-gray-500 pt-0.5 italic"
-          title="Non-additivity among SC's three provisions: SCIAD reduces taxable income before rates apply, so changing both compounds beyond rates-only + SCIAD-only. Not federal flow-through."
+          title="Reflects interactions among the three South Carolina provisions only. SCIAD reduces taxable income before rates apply, so reverting multiple provisions together produces a combined effect that differs from the sum of the individual provision effects."
         >
           <span>SC provision interaction</span>
           <span className="tabular-nums">{fmtSigned(residual)}</span>
         </div>
       )}
+    </div>
+  );
+}
+
+/** Splits the total impact into its two channels:
+ *  - SC income tax change (sum of the three provisions plus residual)
+ *  - Federal income tax change (driven by SALT flow-through and other
+ *    federal interactions with state tax)
+ *
+ *  Tax-change values use the "current law minus pre-2026" sign
+ *  convention: a positive value indicates an increase in tax liability
+ *  under H.4216. The raw delta is displayed so a positive number
+ *  corresponds to a tax increase, but the color coding is inverted so
+ *  an increase reads as a cost (red) and a decrease reads as savings
+ *  (green). */
+function TaxChannelBreakdown({
+  scTaxChange,
+  federalTaxChange,
+}: {
+  scTaxChange: number;
+  federalTaxChange: number;
+}) {
+  if (Math.abs(scTaxChange) < 1 && Math.abs(federalTaxChange) < 1) {
+    return null;
+  }
+  const rows = [
+    {
+      label: 'SC income tax',
+      value: scTaxChange,
+      title:
+        'Change in South Carolina individual income tax liability under H.4216 compared with pre-2026 law. A positive value indicates an increase in tax.',
+    },
+    {
+      label: 'Federal income tax',
+      value: federalTaxChange,
+      title:
+        'Change in federal individual income tax under H.4216 compared with pre-2026 law. South Carolina income tax counts toward the federal itemized deduction for state and local taxes (subject to the $40,000 SALT cap), so a change in South Carolina tax can shift federal taxable income and therefore federal tax. A positive value indicates an increase in tax.',
+    },
+  ];
+
+  return (
+    <div className="mt-2 pt-2 border-t border-gray-200 space-y-1">
+      <p className="text-[10px] uppercase tracking-wider text-gray-500 font-medium mb-1">
+        By tax channel
+      </p>
+      {rows.map(({ label, value, title }) => (
+        <div
+          key={label}
+          className="flex items-center justify-between text-xs"
+          title={title}
+        >
+          <span className="text-gray-700">{label}</span>
+          <span
+            className="font-medium tabular-nums"
+            style={{
+              // Tax increase => HH loses => red. Tax decrease => HH gains => green.
+              color:
+                value > 0
+                  ? 'var(--chart-negative)'
+                  : value < 0
+                    ? 'var(--chart-positive)'
+                    : 'var(--text-muted)',
+            }}
+          >
+            {fmtSigned(value)}
+          </span>
+        </div>
+      ))}
     </div>
   );
 }

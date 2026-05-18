@@ -264,7 +264,7 @@ function ProvisionBreakdown({ provisions }: { provisions: ProvisionsAtIncome }) 
       {showResidual && (
         <div
           className="flex items-center justify-between text-[10px] text-gray-500 pt-0.5 italic"
-          title="Non-additivity among the three SC provisions only: SCIAD reduces taxable income before rates apply, so reverting both together compounds beyond rates-only + SCIAD-only. NOT federal tax change. NOT AMT. NOT SALT flow-through."
+          title="Reflects interactions among the three South Carolina provisions only. SCIAD reduces taxable income before rates apply, so reverting multiple provisions together produces a combined effect that differs from the sum of the individual provision effects."
         >
           <span>SC provision interaction</span>
           <span className="tabular-nums">{fmtSigned(residual)}</span>
@@ -275,15 +275,16 @@ function ProvisionBreakdown({ provisions }: { provisions: ProvisionsAtIncome }) 
 }
 
 /** Splits the total impact into its two channels:
- *  - SC income tax change (sum of the three provisions + residual)
- *  - Federal income tax change (SALT flow-through, etc.)
+ *  - SC income tax change (sum of the three provisions plus residual)
+ *  - Federal income tax change (driven by SALT flow-through and other
+ *    federal interactions with state tax)
  *
- *  Tax-change values use the "current law - revert" sign convention:
- *  positive means HH pays MORE tax under H.4216 (a loss to the HH).
- *  We display the raw delta so the "+$391" matches the user's mental
- *  model of "my tax went up by $391", but flip the green/red so a
- *  tax increase shows red (cost) and a tax decrease shows green
- *  (savings). */
+ *  Tax-change values use the "current law minus pre-2026" sign
+ *  convention: a positive value indicates an increase in tax liability
+ *  under H.4216. The raw delta is displayed so a positive number
+ *  corresponds to a tax increase, but the color coding is inverted so
+ *  an increase reads as a cost (red) and a decrease reads as savings
+ *  (green). */
 function TaxChannelBreakdown({
   scTaxChange,
   federalTaxChange,
@@ -299,13 +300,13 @@ function TaxChannelBreakdown({
       label: 'SC income tax',
       value: scTaxChange,
       title:
-        'Direct change in your South Carolina income tax liability under H.4216 vs. pre-2026 law. Positive means you pay more.',
+        'Change in South Carolina individual income tax liability under H.4216 compared with pre-2026 law. A positive value indicates an increase in tax.',
     },
     {
       label: 'Federal income tax',
       value: federalTaxChange,
       title:
-        'Change in your federal income tax driven by SALT flow-through: SC income tax counts as a federal itemized deduction (subject to the $40k SALT cap), so any SC tax change moves federal taxable income and therefore federal tax. NOT AMT. Positive means you pay more.',
+        'Change in federal individual income tax under H.4216 compared with pre-2026 law. South Carolina income tax counts toward the federal itemized deduction for state and local taxes (subject to the $40,000 SALT cap), so a change in South Carolina tax can shift federal taxable income and therefore federal tax. A positive value indicates an increase in tax.',
     },
   ];
 

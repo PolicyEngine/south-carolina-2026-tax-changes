@@ -38,6 +38,7 @@ interface ExampleHousehold extends ExampleHouseholdProfile {
   };
   net_income_change: number;
   sc_tax_change: number;
+  federal_tax_change?: number;
   chart: ChartArrays;
   provisions?: ProvisionsAtIncome;
   provisions_chart?: ProvisionsChart;
@@ -195,6 +196,11 @@ export default function ExampleHouseholds({
                 <ProvisionBreakdown provisions={h.provisions} />
               )}
 
+              <TaxChannelBreakdown
+                scTaxChange={h.sc_tax_change}
+                federalTaxChange={h.federal_tax_change ?? 0}
+              />
+
               <p className="text-xs text-gray-500 mt-2 leading-5">
                 SC tax: {fmtCurrency(h.reform.sc_income_tax)} →{' '}
                 {fmtCurrency(h.baseline.sc_income_tax)}
@@ -224,6 +230,9 @@ function ProvisionBreakdown({ provisions }: { provisions: ProvisionsAtIncome }) 
 
   return (
     <div className="mt-3 pt-2 border-t border-gray-200 space-y-1">
+      <p className="text-[10px] uppercase tracking-wider text-gray-500 font-medium mb-1">
+        By SC provision
+      </p>
       {rows.map(({ key, value }) => (
         <div
           key={key}
@@ -255,12 +264,79 @@ function ProvisionBreakdown({ provisions }: { provisions: ProvisionsAtIncome }) 
       {showResidual && (
         <div
           className="flex items-center justify-between text-[10px] text-gray-500 pt-0.5 italic"
-          title="Non-additivity among SC's three provisions: SCIAD reduces taxable income before rates apply, so changing both compounds beyond rates-only + SCIAD-only. Not federal flow-through."
+          title="Non-additivity among the three SC provisions only: SCIAD reduces taxable income before rates apply, so reverting both together compounds beyond rates-only + SCIAD-only. NOT federal tax change. NOT AMT. NOT SALT flow-through."
         >
           <span>SC provision interaction</span>
           <span className="tabular-nums">{fmtSigned(residual)}</span>
         </div>
       )}
+    </div>
+  );
+}
+
+/** Splits the total impact into its two channels:
+ *  - SC income tax change (sum of the three provisions + residual)
+ *  - Federal income tax change (SALT flow-through, etc.)
+ *
+ *  Tax-change values use the "current law - revert" sign convention:
+ *  positive means HH pays MORE tax under H.4216 (a loss to the HH).
+ *  We display the raw delta so the "+$391" matches the user's mental
+ *  model of "my tax went up by $391", but flip the green/red so a
+ *  tax increase shows red (cost) and a tax decrease shows green
+ *  (savings). */
+function TaxChannelBreakdown({
+  scTaxChange,
+  federalTaxChange,
+}: {
+  scTaxChange: number;
+  federalTaxChange: number;
+}) {
+  if (Math.abs(scTaxChange) < 1 && Math.abs(federalTaxChange) < 1) {
+    return null;
+  }
+  const rows = [
+    {
+      label: 'SC income tax',
+      value: scTaxChange,
+      title:
+        'Direct change in your South Carolina income tax liability under H.4216 vs. pre-2026 law. Positive means you pay more.',
+    },
+    {
+      label: 'Federal income tax',
+      value: federalTaxChange,
+      title:
+        'Change in your federal income tax driven by SALT flow-through: SC income tax counts as a federal itemized deduction (subject to the $40k SALT cap), so any SC tax change moves federal taxable income and therefore federal tax. NOT AMT. Positive means you pay more.',
+    },
+  ];
+
+  return (
+    <div className="mt-2 pt-2 border-t border-gray-200 space-y-1">
+      <p className="text-[10px] uppercase tracking-wider text-gray-500 font-medium mb-1">
+        By tax channel
+      </p>
+      {rows.map(({ label, value, title }) => (
+        <div
+          key={label}
+          className="flex items-center justify-between text-xs"
+          title={title}
+        >
+          <span className="text-gray-700">{label}</span>
+          <span
+            className="font-medium tabular-nums"
+            style={{
+              // Tax increase => HH loses => red. Tax decrease => HH gains => green.
+              color:
+                value > 0
+                  ? 'var(--chart-negative)'
+                  : value < 0
+                    ? 'var(--chart-positive)'
+                    : 'var(--text-muted)',
+            }}
+          >
+            {fmtSigned(value)}
+          </span>
+        </div>
+      ))}
     </div>
   );
 }

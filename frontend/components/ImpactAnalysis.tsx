@@ -134,9 +134,20 @@ export default function ImpactAnalysis({
     })
     .filter((d) => d.income <= xMax);
 
-  const metricCard = (label: string, value: number) => {
-    const positive = value > 0;
-    const negative = value < 0;
+  /** Render a summary metric card.
+   *
+   *  `inverseSign` flips the green/red coloring for tax-change cards
+   *  where a positive value (more tax owed) is a LOSS to the household
+   *  rather than a gain. Without it, "Federal tax change: +$391"
+   *  renders in green and reads as a benefit, which is misleading. */
+  const metricCard = (
+    label: string,
+    value: number,
+    inverseSign: boolean = false,
+  ) => {
+    const householdSign = inverseSign ? -value : value;
+    const positive = householdSign > 0;
+    const negative = householdSign < 0;
     return (
       <div
         className={`rounded-lg p-6 border ${
@@ -188,13 +199,30 @@ export default function ImpactAnalysis({
         <p style={{ margin: '0 0 4px', fontWeight: 600 }}>
           Income: {formatCurrency(Math.round(incomeLabel / 100) * 100)}
         </p>
-        <p style={{ margin: 0 }}>
+        <p
+          style={{
+            margin: '4px 0 2px',
+            fontSize: 11,
+            color: 'var(--text-muted)',
+            textTransform: 'uppercase',
+            letterSpacing: '0.05em',
+          }}
+        >
+          By tax channel
+        </p>
+        <p
+          style={{ margin: 0 }}
+          title="Direct change in your South Carolina income tax liability under H.4216 vs. pre-2026 law. Positive means you pay more."
+        >
+          SC tax change: {formatCurrencyWithSign(p.stateTaxChange)}
+        </p>
+        <p
+          style={{ margin: 0 }}
+          title="Change in federal tax driven by SALT flow-through: SC income tax counts as a federal itemized deduction (subject to the $40k SALT cap), so any SC tax change moves federal taxable income and therefore federal tax. NOT AMT. Positive means you pay more."
+        >
           Federal tax change: {formatCurrencyWithSign(p.federalTaxChange)}
         </p>
-        <p style={{ margin: 0 }}>
-          South Carolina state tax change: {formatCurrencyWithSign(p.stateTaxChange)}
-        </p>
-        <p style={{ margin: '0 0 4px', fontWeight: 600 }}>
+        <p style={{ margin: '4px 0 0', fontWeight: 600 }}>
           Net income change: {formatCurrencyWithSign(p.netIncomeChange)}
         </p>
         {hasProvisions && p.rates !== null && p.sciad !== null && p.eitc !== null && (
@@ -235,7 +263,7 @@ export default function ImpactAnalysis({
             ))}
             {p.interaction !== null && Math.abs(p.interaction) >= 1 && (
               <p
-                title="Non-additivity among SC's three provisions: SCIAD reduces taxable income before rates apply, so changing both compounds beyond rates-only + SCIAD-only. Not federal flow-through."
+                title="Non-additivity among the three SC provisions only: SCIAD reduces taxable income before rates apply, so reverting both together compounds beyond rates-only + SCIAD-only. NOT federal tax change. NOT AMT. NOT SALT flow-through."
                 style={{
                   margin: '2px 0 0',
                   display: 'flex',
@@ -274,8 +302,15 @@ export default function ImpactAnalysis({
         </p>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {metricCard('Federal tax change', federalTaxChangePoint)}
-          {metricCard('South Carolina state tax change', stateTaxChangePoint)}
+          {/* Tax-change cards display the raw delta (positive = your
+              tax went up) but flip color so "+$391 in green" doesn't
+              mislead the user into thinking it's a benefit. */}
+          {metricCard('Federal tax change', federalTaxChangePoint, true)}
+          {metricCard(
+            'South Carolina state tax change',
+            stateTaxChangePoint,
+            true,
+          )}
           {metricCard('Net income change', netIncomeChangePoint)}
         </div>
 

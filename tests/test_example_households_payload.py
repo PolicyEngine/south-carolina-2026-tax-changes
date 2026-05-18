@@ -140,3 +140,27 @@ def test_sign_convention_rates_revert_raises_sc_tax(
             f"(pre-2026 6% top rate > current 5.21%). Baseline/revert may "
             f"have been swapped."
         )
+
+
+def test_federal_channel_visible_for_itemizer(households: list[dict]) -> None:
+    """A profile labeled 'itemizer' must actually itemize federally and
+    therefore show a non-zero federal_tax_change on rate revert (SALT
+    flow-through). PE-US's federal mortgage-interest deduction reads
+    tax-unit-level inputs; passing person-level home_mortgage_interest
+    is a silent no-op that previously kept this profile on the standard
+    deduction and zeroed the federal channel. This test guards against
+    that regression.
+    """
+    itemizers = [h for h in households if "itemizer" in h["label"].lower()]
+    if not itemizers:
+        pytest.skip("no itemizer profile in payload")
+    for h in itemizers:
+        fed_rates = h["provisions"]["rates"]["federal_tax_change"]
+        assert abs(fed_rates) >= 1, (
+            f"household {h['label']}: itemizer profile's rates-only "
+            f"revert produced federal_tax_change={fed_rates:.2f}. PE-US "
+            f"may be reading mortgage interest from the wrong variable "
+            f"again — check build_household() routes "
+            f"home_mortgage_interest -> first_home_mortgage_* on the "
+            f"tax unit."
+        )

@@ -17,11 +17,16 @@ Usage:
 """
 
 import json
+import os
 from pathlib import Path
 
 import requests
 
-PE_API = "https://api.policyengine.org/us/calculate"
+# Allow staging / dev override via env so the script can target a non-
+# prod API without editing the source.
+PE_API = os.environ.get(
+    "PE_API_URL", "https://api.policyengine.org/us/calculate"
+)
 YEAR = 2026
 REPO_ROOT = Path(__file__).resolve().parent.parent
 OUTPUT_PATH = REPO_ROOT / "frontend" / "public" / "data" / "example_households.json"
@@ -48,7 +53,14 @@ PROFILES = [
         "married": True,
         "dependents": [11, 14],
         "real_estate_taxes": 12_000,
+        # PE-US's federal mortgage-interest deduction reads tax-unit-
+        # level first_home_mortgage_interest / balance / origination
+        # year (apply §163(h) acquisition-debt cap) — not the
+        # person-level home_mortgage_interest variable, which is
+        # derived. Pass all three so the deduction actually fires.
         "home_mortgage_interest": 20_000,
+        "home_mortgage_balance": 300_000,
+        "home_mortgage_origination_year": 2020,
         "charitable_cash_donations": 5_000,
     },
 ]
@@ -109,10 +121,16 @@ def build_household(profile: dict, with_axes: bool = False) -> dict:
     If ``with_axes`` is True, sweeps employment_income from $0 to a
     profile-derived max so we can pre-compute the full net-income chart.
 
-    The SC household builder accepts itemization-related fields
-    (real_estate_taxes, home_mortgage_interest, charitable_cash_donations) on
-    the tax unit so the high-income example can trigger SCAID
-    interaction.
+    Itemizable inputs route to PE-US's actual reading locations:
+
+    - ``real_estate_taxes`` and ``charitable_cash_donations`` are
+      person-level inputs and feed federal SALT / charitable deductions
+      directly.
+    - Mortgage interest is computed at the tax-unit level via
+      ``first_home_mortgage_interest`` + ``first_home_mortgage_balance``
+      + ``first_home_mortgage_origination_year`` so the §163(h)
+      acquisition-debt cap fires. The profile's ``home_mortgage_interest``
+      key is conceptual; we translate it here.
     """
     year = str(YEAR)
     income_for_baseline = None if with_axes else profile["income"]
@@ -120,8 +138,9 @@ def build_household(profile: dict, with_axes: bool = False) -> dict:
         "age": {year: profile["age_head"]},
         "employment_income": {year: income_for_baseline},
     }
-    # Itemization-relevant variables live on the person, not the tax unit.
-    for var in ("real_estate_taxes", "home_mortgage_interest", "charitable_cash_donations"):
+    # Person-level itemization inputs. NOTE: home_mortgage_interest is
+    # routed via the tax-unit-level variables below, not set here.
+    for var in ("real_estate_taxes", "charitable_cash_donations"):
         if var in profile:
             you_attrs[var] = {year: profile[var]}
     people: dict = {"you": you_attrs}
@@ -151,6 +170,21 @@ def build_household(profile: dict, with_axes: bool = False) -> dict:
         "income_tax": {year: None},
         "sc_income_tax": {year: None},
     }
+    # Federal mortgage-interest deduction is a tax-unit calculation in
+    # PE-US: it needs both the interest paid and the outstanding
+    # balance, plus the origination year for the §163(h) cap selection.
+    if "home_mortgage_interest" in profile:
+        tax_unit["first_home_mortgage_interest"] = {
+            year: profile["home_mortgage_interest"]
+        }
+    if "home_mortgage_balance" in profile:
+        tax_unit["first_home_mortgage_balance"] = {
+            year: profile["home_mortgage_balance"]
+        }
+    if "home_mortgage_origination_year" in profile:
+        tax_unit["first_home_mortgage_origination_year"] = {
+            year: profile["home_mortgage_origination_year"]
+        }
 
     situation: dict = {
         "people": people,
@@ -330,12 +364,40 @@ def compute_profile(profile: dict) -> dict:
     }
 
 
+def _validate_sign_convention(rows: list[dict]) -> None:
+    """Fail loud if the baseline/revert sign convention got flipped.
+
+    Pre-2026 SC had a 6% top rate vs current law's 5.21%, so reverting
+    only the rate schedule must *raise* state tax (negative
+    state_tax_change in our convention) for any household with non-zero
+    SC liability. If the wiring ever inverts, the entire dashboard
+    reads backwards — catch it before we ship a broken JSON.
+    """
+    for row in rows:
+        rates = row.get("provisions", {}).get("rates", {})
+        # Households below the SC filing threshold have $0 liability
+        # either way and don't constrain the check.
+        if abs(rates.get("state_tax_change", 0)) < 1:
+            continue
+        if rates["state_tax_change"] >= 0:
+            raise SystemExit(
+                f"Sign-convention check failed for {row['label']}: "
+                f"rates-only revert produced state_tax_change="
+                f"{rates['state_tax_change']:.2f} but pre-2026 6% top "
+                f"rate should raise SC tax (negative under "
+                f"baseline-minus-revert). Did baseline and revert get "
+                f"swapped?"
+            )
+
+
 def main() -> None:
     OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
     rows = []
     for profile in PROFILES:
         print(f"  Computing: {profile['label']}...")
         rows.append(compute_profile(profile))
+
+    _validate_sign_convention(rows)
 
     with OUTPUT_PATH.open("w", encoding="utf-8") as fh:
         json.dump({"year": YEAR, "households": rows}, fh, indent=2)

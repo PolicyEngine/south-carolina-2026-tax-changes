@@ -253,8 +253,11 @@ function ProvisionBreakdown({ provisions }: { provisions: ProvisionsAtIncome }) 
         </div>
       ))}
       {showResidual && (
-        <div className="flex items-center justify-between text-[10px] text-gray-500 pt-0.5 italic">
-          <span>Interaction</span>
+        <div
+          className="flex items-center justify-between text-[10px] text-gray-500 pt-0.5 italic"
+          title="Non-additivity among SC's three provisions: SCIAD reduces taxable income before rates apply, so changing both compounds beyond rates-only + SCIAD-only. Not federal flow-through."
+        >
+          <span>SC provision interaction</span>
           <span className="tabular-nums">{fmtSigned(residual)}</span>
         </div>
       )}

@@ -66,18 +66,16 @@ export default function ImpactAnalysis({
 
   if (error) {
     const errorMessage = (error as Error).message;
-    const isApiNotUpdated = errorMessage.includes('500') || errorMessage.includes('too many values');
     return (
       <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
-        <h2 className="text-yellow-800 font-semibold mb-2">Household calculator temporarily unavailable</h2>
-        {isApiNotUpdated ? (
-          <p className="text-yellow-700">
-            The PolicyEngine API is being updated to reflect the South Carolina 2026 tax changes.
-            Please check back soon, or view the <strong>South Carolina impact</strong> tab for precomputed results.
-          </p>
-        ) : (
-          <p className="text-yellow-700">{errorMessage}</p>
-        )}
+        <h2 className="text-yellow-800 font-semibold mb-2">
+          Household calculator temporarily unavailable
+        </h2>
+        <p className="text-yellow-700">
+          The PolicyEngine API returned an error: <code>{errorMessage}</code>. You
+          can still see precomputed results in the example-household cards above
+          or on the <strong>South Carolina impact</strong> tab.
+        </p>
       </div>
     );
   }
@@ -237,6 +235,7 @@ export default function ImpactAnalysis({
             ))}
             {p.interaction !== null && Math.abs(p.interaction) >= 1 && (
               <p
+                title="Non-additivity among SC's three provisions: SCIAD reduces taxable income before rates apply, so changing both compounds beyond rates-only + SCIAD-only. Not federal flow-through."
                 style={{
                   margin: '2px 0 0',
                   display: 'flex',
@@ -248,7 +247,7 @@ export default function ImpactAnalysis({
                 }}
               >
                 <span style={{ display: 'inline-block', width: 8 }} />
-                <span style={{ flex: 1 }}>Interaction:</span>
+                <span style={{ flex: 1 }}>SC provision interaction:</span>
                 <span style={{ fontVariantNumeric: 'tabular-nums' }}>
                   {formatCurrencyWithSign(p.interaction)}
                 </span>

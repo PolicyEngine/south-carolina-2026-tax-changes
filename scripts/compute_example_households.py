@@ -17,11 +17,16 @@ Usage:
 """
 
 import json
+import os
 from pathlib import Path
 
 import requests
 
-PE_API = "https://api.policyengine.org/us/calculate"
+# Allow staging / dev override via env so the script can target a non-
+# prod API without editing the source.
+PE_API = os.environ.get(
+    "PE_API_URL", "https://api.policyengine.org/us/calculate"
+)
 YEAR = 2026
 REPO_ROOT = Path(__file__).resolve().parent.parent
 OUTPUT_PATH = REPO_ROOT / "frontend" / "public" / "data" / "example_households.json"
@@ -330,12 +335,40 @@ def compute_profile(profile: dict) -> dict:
     }
 
 
+def _validate_sign_convention(rows: list[dict]) -> None:
+    """Fail loud if the baseline/revert sign convention got flipped.
+
+    Pre-2026 SC had a 6% top rate vs current law's 5.21%, so reverting
+    only the rate schedule must *raise* state tax (negative
+    state_tax_change in our convention) for any household with non-zero
+    SC liability. If the wiring ever inverts, the entire dashboard
+    reads backwards — catch it before we ship a broken JSON.
+    """
+    for row in rows:
+        rates = row.get("provisions", {}).get("rates", {})
+        # Households below the SC filing threshold have $0 liability
+        # either way and don't constrain the check.
+        if abs(rates.get("state_tax_change", 0)) < 1:
+            continue
+        if rates["state_tax_change"] >= 0:
+            raise SystemExit(
+                f"Sign-convention check failed for {row['label']}: "
+                f"rates-only revert produced state_tax_change="
+                f"{rates['state_tax_change']:.2f} but pre-2026 6% top "
+                f"rate should raise SC tax (negative under "
+                f"baseline-minus-revert). Did baseline and revert get "
+                f"swapped?"
+            )
+
+
 def main() -> None:
     OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
     rows = []
     for profile in PROFILES:
         print(f"  Computing: {profile['label']}...")
         rows.append(compute_profile(profile))
+
+    _validate_sign_convention(rows)
 
     with OUTPUT_PATH.open("w", encoding="utf-8") as fh:
         json.dump({"year": YEAR, "households": rows}, fh, indent=2)

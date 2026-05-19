@@ -320,10 +320,10 @@ export default function SCDistrictChoroplethMap({
       >
         <ComposableMap
           projection="geoMercator"
-          projectionConfig={{ scale: 9500, center: [-80.9, 33.9] }}
-          width={1400}
-          height={1000}
-          style={{ width: 1400, height: 1000, display: 'block' }}
+          projectionConfig={{ scale: 7000, center: [-80.9, 33.8] }}
+          width={1100}
+          height={750}
+          style={{ width: 1100, height: 750, display: 'block', margin: '0 auto' }}
         >
             <Geographies geography={geoData}>
               {({ geographies }) =>

@@ -14,7 +14,7 @@ export default function PolicyOverview() {
           consolidates the three-bracket rate schedule into two brackets, replaces federal deductions with a state-specific
           SCIAD deduction, and caps the nonrefundable state EITC at $200.
         </p>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
           <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
             <h3 className="font-semibold text-gray-800 mb-2">Simplified brackets</h3>
             <p className="text-sm text-gray-600">
@@ -36,13 +36,6 @@ export default function PolicyOverview() {
               Caps South Carolina&apos;s nonrefundable state Earned Income Tax Credit
               at $200 per filer. Previously the state credit was 125% of the
               federal EITC with no dollar cap.
-            </p>
-          </div>
-          <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-            <h3 className="font-semibold text-gray-800 mb-2">Effective 2026</h3>
-            <p className="text-sm text-gray-600">
-              All three changes apply to tax years beginning after December 31,
-              2025.
             </p>
           </div>
         </div>

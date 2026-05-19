@@ -5,6 +5,7 @@ import {
   ComposableMap,
   Geographies,
   Geography,
+  ZoomableGroup,
 } from 'react-simple-maps';
 
 export interface SCDistrictData {
@@ -238,6 +239,10 @@ export default function SCDistrictChoroplethMap({
     null,
   );
   const [tooltip, setTooltip] = useState<Tooltip | null>(null);
+  // ZoomableGroup state — controlled so the +/- buttons and pan gestures
+  // stay in sync.
+  const [zoom, setZoom] = useState(1);
+  const [zoomCenter, setZoomCenter] = useState<[number, number]>([-80.9, 33.9]);
 
   // Fetch SC congressional districts from ArcGIS, with fallback.
   useEffect(() => {
@@ -315,16 +320,26 @@ export default function SCDistrictChoroplethMap({
   return (
     <div className="relative">
       <div
-        className="w-full overflow-auto border border-gray-100 rounded-md"
+        className="w-full border border-gray-100 rounded-md relative"
         style={{ height: 600 }}
       >
         <ComposableMap
           projection="geoMercator"
-          projectionConfig={{ scale: 7000, center: [-80.9, 33.8] }}
-          width={1100}
-          height={750}
-          style={{ width: 1100, height: 750, display: 'block', margin: '0 auto' }}
+          projectionConfig={{ scale: 5800, center: [-80.9, 33.9] }}
+          width={900}
+          height={650}
+          style={{ width: '100%', height: '100%', display: 'block' }}
         >
+            <ZoomableGroup
+              zoom={zoom}
+              center={zoomCenter}
+              onMoveEnd={({ zoom: z, coordinates }) => {
+                setZoom(z);
+                setZoomCenter(coordinates as [number, number]);
+              }}
+              minZoom={1}
+              maxZoom={8}
+            >
             <Geographies geography={geoData}>
               {({ geographies }) =>
                 geographies.map((geo) => {
@@ -381,7 +396,38 @@ export default function SCDistrictChoroplethMap({
                 })
               }
             </Geographies>
+            </ZoomableGroup>
         </ComposableMap>
+        {/* Zoom controls */}
+        <div className="absolute top-3 right-3 flex flex-col gap-1 bg-white rounded-md shadow-md border border-gray-200">
+          <button
+            type="button"
+            onClick={() => setZoom((z) => Math.min(z * 1.5, 8))}
+            aria-label="Zoom in"
+            className="w-9 h-9 flex items-center justify-center text-lg font-bold text-gray-700 hover:bg-gray-100 border-b border-gray-200"
+          >
+            +
+          </button>
+          <button
+            type="button"
+            onClick={() => setZoom((z) => Math.max(z / 1.5, 1))}
+            aria-label="Zoom out"
+            className="w-9 h-9 flex items-center justify-center text-lg font-bold text-gray-700 hover:bg-gray-100 border-b border-gray-200"
+          >
+            &minus;
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setZoom(1);
+              setZoomCenter([-80.9, 33.9]);
+            }}
+            aria-label="Reset zoom"
+            className="w-9 h-9 flex items-center justify-center text-xs font-semibold text-gray-700 hover:bg-gray-100"
+          >
+            Reset
+          </button>
+        </div>
 
         {tooltip && (
           <div

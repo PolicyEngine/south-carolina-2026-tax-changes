@@ -308,23 +308,22 @@ export default function SCDistrictChoroplethMap({
 
   const handleDistrictLeave = useCallback(() => setTooltip(null), []);
 
-  if (!geoData) {
-    return (
-      <div className="flex items-center justify-center bg-gray-50 rounded-lg h-[420px]">
-        <p className="text-gray-500">Loading South Carolina district map...</p>
-      </div>
-    );
-  }
+  // Topojson is bundled in /public and resolves locally; skip the
+  // pre-render placeholder so the map slot doesn't flash.
+  if (!geoData) return null;
 
   return (
     <div className="relative">
-      <div className="w-full" style={{ height: 600 }}>
+      <div
+        className="w-full overflow-auto border border-gray-100 rounded-md"
+        style={{ height: 600 }}
+      >
         <ComposableMap
           projection="geoMercator"
-          projectionConfig={{ scale: 5800, center: [-80.9, 33.9] }}
-          width={900}
-          height={650}
-          style={{ width: '100%', height: '100%' }}
+          projectionConfig={{ scale: 9500, center: [-80.9, 33.9] }}
+          width={1400}
+          height={1000}
+          style={{ width: 1400, height: 1000, display: 'block' }}
         >
             <Geographies geography={geoData}>
               {({ geographies }) =>

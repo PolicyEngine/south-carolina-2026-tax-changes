@@ -90,16 +90,10 @@ export default function CongressionalDistrictImpact({ year = 2026 }: Props) {
       });
   }, [year]);
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <div className="text-center">
-          <div className="inline-block h-12 w-12 animate-spin rounded-full border-4 border-solid border-primary border-r-transparent"></div>
-          <p className="mt-4 text-gray-600">Loading South Carolina district data...</p>
-        </div>
-      </div>
-    );
-  }
+  // District data is precomputed and shipped under /public; the fetch
+  // resolves locally in a few ms. Skipping a loading spinner avoids a
+  // perceptible flash on a calc that's effectively synchronous.
+  if (loading) return null;
 
   if (error || data.length === 0) {
     return (

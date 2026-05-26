@@ -13,7 +13,7 @@ const inter = Inter({
 });
 
 const SITE_URL = 'https://policyengine.org/us/south-carolina-2026-tax-changes';
-const OG_IMAGE_URL = `${SITE_URL}/opengraph-image`;
+const OG_IMAGE_URL = `${SITE_URL}/og-image.png`;
 
 const TITLE =
   'South Carolina 2026 Tax Changes Calculator — H.4216 / Act 110 | PolicyEngine';

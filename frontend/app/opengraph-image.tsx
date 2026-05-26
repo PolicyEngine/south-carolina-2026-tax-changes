@@ -1,7 +1,12 @@
 import { ImageResponse } from 'next/og';
 
-// Route segment config — generate at build time
-export const runtime = 'edge';
+// Route segment config — generate at build time.
+// We intentionally do NOT set `runtime = 'edge'` here: the Edge runtime
+// has a 1MB compressed function size limit, and `next/og`'s
+// `ImageResponse` (which bundles fonts + a WASM rasterizer) regularly
+// pushes us over that ceiling, causing the Vercel deployment to fail
+// with an opaque "Error" status after a successful build. The Node.js
+// runtime has no such cap and renders the same PNG just fine.
 export const alt =
   "South Carolina 2026 Tax Changes Calculator — H.4216 / Act 110 impact on households and the state";
 export const size = { width: 1200, height: 630 };

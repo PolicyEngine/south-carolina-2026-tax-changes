@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import { useCallback, useState, useRef, useEffect } from 'react';
 
 /**
@@ -370,9 +371,13 @@ export default function Header() {
         {/* Left: Logo + Desktop Nav */}
         <div style={{ display: 'flex', alignItems: 'center' }}>
           <a href="https://policyengine.org/us" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', marginRight: '12px' }}>
-            <img
+            <Image
               src="https://policyengine.org/assets/logos/policyengine/white.svg"
               alt="PolicyEngine"
+              width={120}
+              height={24}
+              priority
+              unoptimized
               style={{ height: '24px', width: 'auto' }}
             />
           </a>

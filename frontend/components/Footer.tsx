@@ -1,5 +1,7 @@
 'use client';
 
+import Image from 'next/image';
+
 /**
  * Footer matching policyengine-app-v2 exactly.
  * Uses inline SVGs instead of @tabler/icons-react.
@@ -103,9 +105,12 @@ export default function Footer() {
     >
       <div style={{ maxWidth: '976px', margin: '0 auto' }}>
         {/* Logo */}
-        <img
+        <Image
           src="https://policyengine.org/assets/logos/policyengine/white.svg"
           alt="PolicyEngine"
+          width={260}
+          height={52}
+          unoptimized
           style={{ height: '52px', width: 'auto' }}
         />
 

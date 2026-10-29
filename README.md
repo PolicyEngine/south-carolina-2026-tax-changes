@@ -8,4 +8,4 @@ seven congressional districts.
 - **Modal pipelines**: `scripts/modal_pipeline.py` (statewide), `scripts/modal_district_pipeline.py` (per-district)
 - **Pre-computed CSVs**: `frontend/public/data/*.csv`
 
-Live: <https://policyengine-south-carolina-2026-tax-changes.vercel.app/us/south-carolina-2026-tax-changes>
+Live: <https://policyengine.org/us/south-carolina-2026-tax-changes>

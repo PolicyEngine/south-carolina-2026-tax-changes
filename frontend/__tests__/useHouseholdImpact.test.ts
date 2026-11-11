@@ -1,7 +1,10 @@
 import { QueryClient, QueryObserver } from "@tanstack/react-query";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { resetFailedHouseholdImpact } from "@/hooks/useHouseholdImpact";
+import {
+  resetFailedHouseholdImpact,
+  submitHouseholdRequest,
+} from "@/hooks/useHouseholdImpact";
 import type { HouseholdRequest } from "@/lib/types";
 
 const householdRequest: HouseholdRequest = {
@@ -71,5 +74,28 @@ describe("resetFailedHouseholdImpact", () => {
     await resetFailedHouseholdImpact(queryClient, { ...householdRequest });
 
     expect(queryClient.getQueryState(queryKey)?.status).toBe("success");
+  });
+});
+
+describe("submitHouseholdRequest", () => {
+  // "Calculate impact" and the chart's x-axis buttons both submit through
+  // this, so either one runs a failed calculation of the same household
+  // again.
+  it("clears the household's failed calculation and submits the household", async () => {
+    await queryClient
+      .fetchQuery({
+        queryKey,
+        queryFn: () => Promise.reject(new Error("The calculation failed.")),
+        retry: false,
+      })
+      .catch(() => undefined);
+    const submittedRequests: HouseholdRequest[] = [];
+
+    submitHouseholdRequest(queryClient, { ...householdRequest }, (request) =>
+      submittedRequests.push(request),
+    );
+
+    expect(queryClient.getQueryState(queryKey)?.status).toBe("pending");
+    expect(submittedRequests).toEqual([householdRequest]);
   });
 });

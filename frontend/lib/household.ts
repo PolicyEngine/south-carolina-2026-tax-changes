@@ -1,5 +1,5 @@
 /**
- * Build a PolicyEngine household situation for the PE API.
+ * Build a PolicyEngine household situation for a household calculation.
  *
  * For the South Carolina 2026 Tax Changes dashboard:
  * - The PolicyEngine baseline represents 2026 SC law (H.4216 / Act 110 already applied).
@@ -135,7 +135,7 @@ export function buildHouseholdSituation(
 }
 
 /**
- * Build the South Carolina 2026 reform policy dict for the PE API.
+ * Build the South Carolina 2026 reform's parameter changes.
  * Reverts SC to 2025 values so the dashboard can compute:
  *   impact = current-law baseline - pre-2026 reform
  */

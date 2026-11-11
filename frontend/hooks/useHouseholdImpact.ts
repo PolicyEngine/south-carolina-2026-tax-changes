@@ -25,6 +25,20 @@ export function resetFailedHouseholdImpact(
   return queryClient.resetQueries(filters);
 }
 
+/**
+ * Submits a household for calculation. Every control that submits one goes
+ * through this, so a failed calculation of the same household runs again,
+ * while one that succeeded is shown from the cache.
+ */
+export function submitHouseholdRequest(
+  queryClient: QueryClient,
+  request: HouseholdRequest,
+  setSubmittedRequest: (request: HouseholdRequest) => void
+): void {
+  void resetFailedHouseholdImpact(queryClient, request);
+  setSubmittedRequest(request);
+}
+
 export function useHouseholdImpact(
   request: HouseholdRequest | null,
   enabled: boolean

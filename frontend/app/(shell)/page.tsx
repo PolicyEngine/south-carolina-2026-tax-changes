@@ -7,7 +7,7 @@ import AggregateImpact from '@/components/AggregateImpact';
 import ExampleHouseholds, { type ExampleHouseholdProfile } from '@/components/ExampleHouseholds';
 import PolicyOverview from '@/components/PolicyOverview';
 import CongressionalDistrictImpact from '@/components/CongressionalDistrictImpact';
-import { resetFailedHouseholdImpact } from '@/hooks/useHouseholdImpact';
+import { submitHouseholdRequest } from '@/hooks/useHouseholdImpact';
 import type { HouseholdImpactResponse, HouseholdRequest } from '@/lib/types';
 import { parseHashParams } from '@/lib/embedding';
 
@@ -203,10 +203,8 @@ function HouseholdImpactTab() {
   });
 
   const handleCalculate = () => {
-    const request = buildRequest();
-    // After a failure, the same household would otherwise keep showing it.
-    void resetFailedHouseholdImpact(queryClient, request);
-    setSubmittedRequest(request);
+    // A failed calculation of the same household runs again.
+    submitHouseholdRequest(queryClient, buildRequest(), setSubmittedRequest);
     setTriggered(true);
     setPrecomputedImpact(null);
     setSelectedExampleLabel(null);
@@ -396,7 +394,13 @@ function HouseholdImpactTab() {
               key={v}
               onClick={() => {
                 setMaxEarnings(v);
-                setSubmittedRequest(prev => prev ? { ...prev, max_earnings: v } : null);
+                if (submittedRequest) {
+                  submitHouseholdRequest(
+                    queryClient,
+                    { ...submittedRequest, max_earnings: v },
+                    setSubmittedRequest
+                  );
+                }
               }}
               className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
                 maxEarnings === v

@@ -216,16 +216,20 @@ describe('HouseholdImpactTab after a rate-limit refusal', () => {
     stubFetch(() => true);
     renderHouseholdImpactTab();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Calculate impact' }));
+    const calculateButton = screen.getByRole('button', { name: 'Calculate impact' });
+    fireEvent.click(calculateButton);
 
-    const pauseSentence = await screen.findByText(
-      /^Everyone on your network, such as a workshop or an office, shares a limit on calculations a minute\. This page can calculate again in \d+ s\.$/,
-    );
+    const liveRegion = await within(
+      calculateButton.parentElement as HTMLElement,
+    ).findByRole('status');
     // Only the explanation is a live region: the countdown changes every
     // second, and a screen reader would read the whole region again each
     // time.
-    expect(within(pauseSentence).getByRole('status')).toHaveTextContent(
+    expect(liveRegion).toHaveTextContent(
       /^Everyone on your network, such as a workshop or an office, shares a limit on calculations a minute\.$/,
+    );
+    expect(liveRegion.parentElement).toHaveTextContent(
+      /^Everyone on your network, such as a workshop or an office, shares a limit on calculations a minute\. This page can calculate again in \d+ s\.$/,
     );
   });
 
